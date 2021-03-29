@@ -9,6 +9,8 @@ verify_ssl = true
 pyautogui = "*"
 pyperclip = "*"
 jsonpath-ng = "*"
+pyqt5 = "*"
+pyinstaller = "*"
 
 [requires]
 python_version = "3.8"

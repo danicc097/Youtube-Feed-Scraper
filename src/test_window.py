@@ -1,0 +1,991 @@
+import configparser
+import copy
+import ctypes
+import datetime
+import glob
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import traceback
+import urllib.request
+import webbrowser
+from pathlib import Path
+
+import pyautogui
+import pyperclip
+from jsonpath_ng import jsonpath
+from jsonpath_ng.ext import parse
+from PyQt5 import QtCore, QtGui
+from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets as qtw
+from PyQt5.QtGui import (
+    QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPixmap, QStandardItem, QStandardItemModel
+)
+from PyQt5.QtWidgets import (
+    QAbstractButton, QApplication, QCompleter, QFrame, QGraphicsDropShadowEffect, QGridLayout,
+    QHBoxLayout, QLabel, QLayout, QListWidget, QListWidgetItem, QMainWindow, QScrollArea,
+    QSizePolicy, QSystemTrayIcon, QTableWidget, QTableWidgetItem, QToolButton, QTreeView,
+    QVBoxLayout, QWidget
+)
+
+from .designer.YoutubeScraper import Ui_MainWindow
+from .file_loader import DownLoader
+from .resources import get_path
+from .save_restore import grab_GC, guirestore, guisave
+
+BASEDIR = get_path(Path(__file__).parent)
+print(f"BASEDIR is {BASEDIR}")
+
+if hasattr(sys, 'frozen'):
+    basis = sys.executable
+else:
+    basis = sys.argv[0]
+
+RUNTIME_DIR = Path(os.path.split(basis)[0])
+print(f"RUNTIME_DIR is {RUNTIME_DIR}")
+
+#* Set icon on Windows taskbar
+if sys.platform == 'win32':
+    myappid = u'Youtube Scraper'
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+
+class NewWindow(QMainWindow):
+    """MainWindow factory."""
+    def __init__(self):
+        super().__init__()
+        GUI_preferences_path = str(Path.joinpath(RUNTIME_DIR, 'GUI_preferences.ini'))
+        self.GUI_preferences = QtCore.QSettings(GUI_preferences_path, QtCore.QSettings.IniFormat)
+        self.window_list = []
+        self.add_new_window()
+
+    def add_new_window(self):
+        """Creates new MainWindow instance."""
+        self.app_icon = QIcon()
+        app_icon_path = str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))
+        self.app_icon.addFile(app_icon_path)
+        app.setWindowIcon(self.app_icon)
+        app_icon = QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png')))
+        app.setWindowIcon(app_icon)
+        window = MainWindow(self, self.GUI_preferences)
+        window.setWindowTitle("Youtube Scraper")
+        window.setWindowIcon(app_icon)
+        self.window_list.append(window)
+        window.show()
+
+    def shutdown(self):
+        for window in self.window_list:
+            if window.runner:  # set self.runner=None in your __init__ so it's always defined.
+                window.runner.kill()
+
+
+class MainWindow(QMainWindow, Ui_MainWindow):
+    """Main application window."""
+    def __init__(self, window, GUI):
+        super().__init__()
+        self.setupUi(self)
+        self.windowManager = window
+        self.GUI_preferences = GUI
+        self.app_downloader = DownLoader()  # only one instance necessary for the whole app
+        # workaround for graphics effect limitation
+        self.shadow_effects = dict()
+        self.shadow_effects_counter = 0
+        self.config = configparser.ConfigParser()
+        self.config_is_set = 0
+        self.message_is_being_shown = False
+        self.FILEBROWSER_PATH = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
+        self.threadpool = QtCore.QThreadPool()
+        self.img_sync = QPixmap(str(Path.joinpath(BASEDIR, 'data', 'synchronize-icon.png')))
+        self.img_sync = self.img_sync.scaled(25, 25)
+        self.label_sync = QLabel(None)
+        self.title = QLabel("Loading YouTube data...")
+        self.label_sync.setFixedSize(25, 25)
+        self.title.setFixedSize(120, 25)
+        self.title.setMinimumHeight(self.label_sync.height())
+        self.label_sync.setPixmap(self.img_sync)
+        self.signal = MySignal()
+        self.signal.sig_no_args.connect(self.add_sync_icon)
+        self.signal.sig_no_args.connect(self.remove_sync_icon)
+        self.updated_rncs = False
+        self.actionPLAY.setFlat(True)
+        self.actionPLAY.setIcon(
+            QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png')))
+        )
+        self.actionPLAY.setIconSize(QtCore.QSize(48, 48))
+        self.actionFF.setFlat(True)
+        self.actionFF.setIcon(
+            QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_ff.png')))
+        )
+        self.actionFF.setIconSize(QtCore.QSize(32, 32))
+        self.actionREW.setFlat(True)
+        self.actionREW.setIcon(
+            QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_rew.png')))
+        )
+        self.actionREW.setIconSize(QtCore.QSize(32, 32))
+        self.actionSave.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'save.png'))))
+        self.actionOpen.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'open.png'))))
+        self.actionAbout.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'about.png'))))
+        self.actionEdit.setIcon(
+            QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'settings.png')))
+        )
+        self.actionExit.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'exit.png'))))
+        self.actionGitHub_Homepage.setIcon(
+            QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'github.png')))
+        )
+
+        # TODO reopen
+        # Thread runner
+        self.runner = None
+        self.threadpool = QtCore.QThreadPool()
+
+        #TODO restore if GUI_preferences.ini file found in same dir
+        try:
+            guirestore(self, self.GUI_preferences)
+        except:
+            guisave(self, self.GUI_preferences)
+
+        self.actionGitHub_Homepage.triggered.connect(self.GitHubLink)
+        self.actionOpen.triggered.connect(self.readFile)
+        self.actionSave.triggered.connect(self.writeFile)
+        self.actionSave_as.triggered.connect(self.writeNewFile)
+        # self.horizontalHeader.sectionClicked.connect(self.on_view_horizontalHeader_sectionClicked)
+
+        self.listWidgetVideos.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        # self.listWidgetVideos.itemClicked.connect(lambda item: self.qlist_focus_color(item)) #TODO maybe highlight?
+        self.listWidgetVideos.customContextMenuRequested.connect(
+            lambda pos: self.on_customContextMenuRequested_list(pos)
+        )
+
+        self.createTrayIcon()
+        self.trayIcon.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))))
+        self.trayIcon.messageClicked.connect(self.notification_handler)
+
+        json_var = get_yt_source_text(from_local_dir=True)
+        my_videos = get_my_videos(json_var)
+        #### Quick view
+        i = 0
+        for id, video in my_videos.items():
+            if i < 3:
+                print('\n'.join("'%s': '%s', " % item for item in vars(video).items()))
+                print("---------------------------")
+                i += 1
+            else:
+                break
+        #### END Quick view
+        #* Fill QListWidget with custom widgets
+        for video_id, video in my_videos.items():
+            # Create QCustomQWidget
+            myQCustomQWidget = QCustomQWidget(video=video)
+            #TODO: use rounded card styles with QFrames
+            """
+            Create a widget with Qt::Window | Qt::FramelessWindowHint and Qt::WA_TranslucentBackground flag
+            Create a QFrame inside of a widget
+            Set a stylesheel to QFrame, for example:
+            """
+            myQCustomQWidget.setTextUp(video.title)
+            url = video.thumbnail
+            data = urllib.request.urlopen(url).read()
+            vid_thumbnail = QImage()
+            vid_thumbnail.loadFromData(data)
+            myQCustomQWidget.setIcon(vid_thumbnail)
+            # Create QListWidgetItem
+            myQListWidgetItem = QListWidgetItem(self.listWidgetVideos)
+            # Set size hint
+            myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
+            # Add QListWidgetItem into QListWidget
+            self.listWidgetVideos.addItem(myQListWidgetItem)
+            self.listWidgetVideos.setItemWidget(myQListWidgetItem, myQCustomQWidget)
+            # don't apply graphics effect to parent, only lowest children
+
+        #* Expandable section below
+        spoiler = Spoiler(title="TEST")
+        self.applyShadowEffect(spoiler)
+        self.gridLayout.addWidget(spoiler)
+
+        qtw.QAction("Quit", self).triggered.connect(self.closeEvent)
+
+    def applyShadowEffect(self, widget: QWidget):
+        """Same widget graphic effect instance can't be used more than once
+        else it's removed from the first widget. Workaround using a dict:"""
+        self.shadow_effects[self.shadow_effects_counter] = QGraphicsDropShadowEffect(self)
+        self.shadow_effects[self.shadow_effects_counter].setBlurRadius(10)
+        self.shadow_effects[self.shadow_effects_counter].setColor(QtGui.QColor(50, 50, 50))
+        self.shadow_effects[self.shadow_effects_counter].setOffset(2)
+        widget.setGraphicsEffect(self.shadow_effects[self.shadow_effects_counter])
+        self.shadow_effects_counter += 1
+
+    def GitHubLink(self):
+        QtGui.QDesktopServices.openUrl(
+            QtCore.QUrl('https://github.com/danicc097/Youtube-Feed-Scraper')
+        )
+
+    @QtCore.pyqtSlot(QtCore.QPoint)
+    def on_customContextMenuRequested_list(self, pos):
+        menu = qtw.QMenu()
+        delete_row = menu.addAction("Remove")
+        action = menu.exec_(self.listWidgetWindows.viewport().mapToGlobal(pos))
+        if action == delete_row:
+            item = self.listWidgetWindows.itemAt(pos)
+            row = self.listWidgetWindows.row(item)
+            self.listWidgetWindows.takeItem(row)
+
+    def writeNewFile(self):  # ? Save as
+        """Saves GUI user input to a new config file"""
+        self.config_is_set += 1
+        self.filename, _ = qtw.QFileDialog.getSaveFileName(
+            self,
+            "Select where to save the configuration file…",
+            str(Path.joinpath(BASEDIR, 'data')),
+            'Configuration Files (*.ini)',
+            options=qtw.QFileDialog.DontResolveSymlinks
+        )
+        self.statusBar().showMessage(self.filename)
+        if self.filename.lower().endswith('.ini'):
+            try:
+                self.my_settings = QtCore.QSettings(self.filename, QtCore.QSettings.IniFormat)
+                # all values will be returned as QString
+                guisave(self, self.my_settings)
+                self.statusBar().showMessage("Changes saved to: {}".format(self.filename))
+            except Exception as e:
+                qtw.QMessageBox.critical(self, 'Error', f"Could not save settings: {e}")
+
+    def writeFile(self):  # ? Save
+        """Saves GUI user input to the previously opened config file"""
+        if self.config_is_set and self.filename != "":
+            self.statusBar().showMessage("Changes saved to: {}".format(self.filename))
+            self.my_settings = QtCore.QSettings(self.filename, QtCore.QSettings.IniFormat)
+            guisave(self, self.my_settings)
+        else:
+            self.writeNewFile()
+
+    def readFile(self):  # ? Open
+        """Restores GUI user input from a config file"""
+        #* File dialog
+        self.filename, _ = qtw.QFileDialog.getOpenFileName(
+            self,
+            "Select a configuration file to load…",
+            "C:\\",
+            'Configuration Files (*.ini)',
+            options=qtw.QFileDialog.DontResolveSymlinks
+        )
+        #* Invalid file or none
+        if self.filename == "":
+            qtw.QMessageBox.critical(
+                self, "Operation aborted", "Empty filename or none selected. \n Please try again.",
+                qtw.QMessageBox.Ok
+            )
+            self.statusBar().showMessage("Select a valid configuration file")
+        #* Valid file
+        else:
+            if self.filename.lower().endswith('.ini'):
+                self.config_is_set += 1
+                try:
+                    self.my_settings = QtCore.QSettings(self.filename, QtCore.QSettings.IniFormat)
+                    guirestore(self, self.my_settings)
+                    self.statusBar().showMessage(
+                        "Changes now being saved to: {}".format(self.filename)
+                    )
+                    self.setWindowTitle(os.path.basename(self.filename))
+
+                except Exception as e:
+                    qtw.QMessageBox.critical(self, 'Error', f"Could not open settings: {e}")
+            else:
+                qtw.QMessageBox.critical(
+                    self, "Invalid file type", "Please select a .ini file.", qtw.QMessageBox.Ok
+                )
+
+    def add_sync_icon(self):
+        self.statusBar().addPermanentWidget(self.label)
+        self.statusBar().addPermanentWidget(self.title)
+
+    def remove_sync_icon(self):
+        self.statusBar().removeWidget(self.label)
+        self.statusBar().removeWidget(self.title)
+
+    def showSuccess(self):
+        self.trayIcon.show()
+        if not self.hasFocus():
+            self.message_is_being_shown = True
+            self.trayIcon.showMessage(
+                f"RNC data has been loaded!\n", "Click here to start searching.",
+                self.windowManager.app_icon, 1200 * 1000
+            )  # milliseconds default
+
+    def notification_handler(self):
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+        self.show()
+        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowStaysOnTopHint)
+        self.show()
+
+    def createTrayIcon(self):
+        self.restoreAction = qtw.QAction("&Restore", self, triggered=self.showNormal)
+        self.quitAction = qtw.QAction("&Quit", self, triggered=qtw.QApplication.instance().quit)
+        self.trayIconMenu = qtw.QMenu(self)
+        self.trayIconMenu.addAction(self.restoreAction)
+        self.trayIconMenu.addAction(self.quitAction)
+
+        self.trayIcon = QSystemTrayIcon(self)
+        self.trayIcon.setContextMenu(self.trayIconMenu)
+
+    #######################################################
+    ##### EVENTS
+    #######################################################
+
+    def changeEvent(self, event):
+        """Hides the system tray icon when the main window is visible, and viceversa."""
+        if event.type() == QtCore.QEvent.WindowStateChange and self.windowState(
+        ) and self.isMinimized():
+            self.trayIcon.show()
+            event.accept()
+        else:
+            try:
+                if not self.message_is_being_shown:
+                    self.trayIcon.hide()
+            except:
+                pass
+
+    def closeEvent(self, event):
+        """Catches the MainWindow close button event and displays a dialog."""
+        close = qtw.QMessageBox(qtw.QMessageBox.Question, 'Exit', 'Exit application?', parent=self)
+        close_reject = close.addButton('No', qtw.QMessageBox.NoRole)
+        close_accept = close.addButton('Yes', qtw.QMessageBox.AcceptRole)
+        close.exec()  # Necessary for property-based API
+        if close.clickedButton() == close_accept:
+            self.trayIcon.setVisible(False)
+            event.accept()
+        else:
+            event.ignore()
+
+
+#######################################################
+#######################################################
+##### END OF MAINWINDOW
+#######################################################
+#######################################################
+
+
+class Video():
+    """Store video information for ease of use
+    """
+    def __init__(self, id, title="", time="", author="", thumbnail="", author_thumbnail=""):
+        self.id = str(id)
+        self.url = "https://www.youtube.com/watch?v=" + self.id
+        self.title = str(title)
+        self.time = str(time)
+        self.author = str(author)
+        self.thumbnail = str(thumbnail)
+        self.author_thumbnail = str(author_thumbnail)
+
+
+def get_my_videos(json_var):
+    """Extract video metadata from feed to a dictionary accessed by video ID
+    \nParameters:\n   
+    ``json_var`` : ytInitialData variable, containing rendered feed videos data"""
+
+    my_videos = dict()
+
+    # match all rendered video grids
+    jsonpath_expr = parse('*..gridRenderer..gridVideoRenderer')
+    videos_json = [match.value for match in jsonpath_expr.find(json_var)]
+
+    parse_strings = {
+        'id': 'videoId',
+        'title': 'title.runs[*].text',
+        'author': 'shortBylineText.runs[*].text',
+        'author_thumbnail': 'channelThumbnail.thumbnails[*].url',
+        'thumbnail': 'thumbnail.thumbnails[*].url',
+        'time': 'publishedTimeText.simpleText',
+    }
+    videos_parsed = 0
+    parsing_limit = 5
+    bypass_limit = False  # toggle False for fast dev with limit
+    for i in range(len(videos_json)):
+        if videos_parsed < parsing_limit or bypass_limit:
+            for video_attr, parse_str in parse_strings.items():
+                json_expr = parse(parse_str)  # see jsonpath_ng
+                matches = [match.value for match in json_expr.find(videos_json[i])]
+                if not matches:
+                    match_attr = ""
+                else:
+                    match_attr = matches[0]
+                    if video_attr == "id":
+                        video_id = match_attr
+                        my_videos[video_id] = Video(video_id)
+
+                    setattr(my_videos[video_id], video_attr, match_attr)
+            videos_parsed += 1
+        else:
+            break
+    return my_videos
+
+
+def get_yt_source_text(from_local_dir=False, save_to_local_dir=False, last_video: Video = None):
+    """Opens a new browser window to get the feed page's source code.
+    \nParameters:\n   
+    ``from_local_dir`` : get data from local dir after first extraction (dev purposes)
+    ``save_to_local_dir`` : save json data to local dir (dev purposes)
+    ``last_video`` : ensure ``last_video.id`` is found in source. 
+    If not found, it will search until the date is ``last_video.time`` 
+    """
+
+    if not from_local_dir:
+        url = "https://www.youtube.com/feed/subscriptions"
+        webbrowser.open(url)
+        pyautogui.sleep(3)
+        pyautogui.hotkey("ctrl", "n")
+        pyautogui.typewrite(url)
+        pyautogui.hotkey("enter")
+        pyautogui.sleep(1)
+        pyautogui.press("end", presses=10, interval=1)
+        pyautogui.hotkey("ctrl", "u")
+        pyautogui.sleep(2)
+        pyautogui.hotkey("ctrl", "a")
+        pyautogui.sleep(0.1)
+        pyautogui.hotkey("ctrl", "c")
+        pyautogui.sleep(0.5)
+        pyautogui.hotkey("ctrl", "w")
+        pyautogui.sleep(0.2)
+        pyautogui.hotkey("ctrl", "w")
+        source = pyperclip.paste()
+        try:
+            json_var = re.findall(r'ytInitialData = (.*?);', source, re.DOTALL | re.MULTILINE)[0]
+        except:
+            # TODO qmessage
+            print("ERROR : COULD NOT FIND A VALID VIDEO FEED IN SOURCE")
+            exit()
+
+    else:
+        with open(
+            str(Path.joinpath(RUNTIME_DIR, "downloaded_source.json")), "r", encoding="utf-8"
+        ) as f:
+            json_var = f.read()
+
+    # TODO find last video id in source, else change tab and scroll down
+    if last_video is not None:
+        videoId = f'"videoId":"{last_video.id}"'
+        if not videoId in json_var:
+            pass
+
+    if not from_local_dir and save_to_local_dir:
+        with open(
+            str(Path.joinpath(RUNTIME_DIR, "downloaded_source.json")), "a", encoding="utf-8"
+        ) as f:
+            f.write(json_var)
+
+    return json.loads(json_var)
+
+
+#########################################################################
+#########################################################################
+##### CUSTOM WIDGETS
+#########################################################################
+#########################################################################
+
+
+class Spoiler(QWidget):
+    def __init__(self, parent=None, title='', animationDuration=300):
+        """
+        Collapsable and expandable section.
+        Based on:
+        http://stackoverflow.com/questions/32476006/how-to-make-an-expandable-collapsable-section-widget-in-qt
+        """
+        super(Spoiler, self).__init__(parent=parent)
+
+        self.animationDuration = animationDuration
+        self.toggleAnimation = QtCore.QParallelAnimationGroup()
+        self.contentArea = QScrollArea()
+        self.headerLine = QFrame()
+        self.toggleButton = QToolButton()
+        mainLayout = QGridLayout()
+
+        toggleButton = self.toggleButton
+        toggleButton.setStyleSheet("QToolButton { border: none; }")
+        toggleButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        toggleButton.setArrowType(QtCore.Qt.RightArrow)
+        toggleButton.setText(str(title))
+        toggleButton.setCheckable(True)
+        toggleButton.setChecked(False)
+
+        headerLine = self.headerLine
+        headerLine.setFrameShape(QFrame.HLine)
+        headerLine.setFrameShadow(QFrame.Sunken)
+        headerLine.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+
+        self.contentArea.setStyleSheet("QScrollArea { background-color: white; border: none; }")
+        self.contentArea.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # start out collapsed
+        self.contentArea.setMaximumHeight(0)
+        self.contentArea.setMinimumHeight(0)
+        # let the entire widget grow and shrink with its content
+        toggleAnimation = self.toggleAnimation
+        toggleAnimation.addAnimation(QtCore.QPropertyAnimation(self, b"minimumHeight"))
+        toggleAnimation.addAnimation(QtCore.QPropertyAnimation(self, b"maximumHeight"))
+        toggleAnimation.addAnimation(QtCore.QPropertyAnimation(self.contentArea, b"maximumHeight"))
+        # don't waste space
+        mainLayout = mainLayout
+        mainLayout.setVerticalSpacing(0)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        row = 0
+        mainLayout.addWidget(self.toggleButton, row, 0, 1, 1, QtCore.Qt.AlignLeft)
+        mainLayout.addWidget(self.headerLine, row, 2, 1, 1)
+        row += 1
+        mainLayout.addWidget(self.contentArea, row, 0, 1, 3)
+        self.setLayout(mainLayout)
+        label = QLabel("GHRJHG SHGU SRUG HRS GSR\n UG HRS GSR\n UG HRS GSR\n ")
+        spoiler_layout = QVBoxLayout()
+        spoiler_layout.addWidget(label)
+        # set any QLayout in expandable item
+        self.setContentLayout(spoiler_layout)
+
+        def start_animation(checked):
+            arrow_type = QtCore.Qt.DownArrow if checked else QtCore.Qt.RightArrow
+            direction = QtCore.QAbstractAnimation.Forward if checked else QtCore.QAbstractAnimation.Backward
+            toggleButton.setArrowType(arrow_type)
+            self.toggleAnimation.setDirection(direction)
+            self.toggleAnimation.start()
+
+        self.toggleButton.clicked.connect(start_animation)
+
+    def setContentLayout(self, contentLayout: QLayout):
+        """Adds a layout ``contentLayout`` to the spoiler area"""
+        # Not sure if this is equivalent to self.contentArea.destroy()
+        self.contentArea.destroy()
+        self.contentArea.setLayout(contentLayout)
+        collapsedHeight = self.sizeHint().height() - self.contentArea.maximumHeight()
+        contentHeight = contentLayout.sizeHint().height()
+        for i in range(self.toggleAnimation.animationCount() - 1):
+            spoilerAnimation = self.toggleAnimation.animationAt(i)
+            spoilerAnimation.setDuration(self.animationDuration)
+            spoilerAnimation.setStartValue(collapsedHeight)
+            spoilerAnimation.setEndValue(collapsedHeight + contentHeight)
+        contentAnimation = self.toggleAnimation.animationAt(
+            self.toggleAnimation.animationCount() - 1
+        )
+        contentAnimation.setDuration(self.animationDuration)
+        contentAnimation.setStartValue(0)
+        contentAnimation.setEndValue(contentHeight)
+
+
+class QCustomQWidget(QWidget):
+    def __init__(self, parent=None, video: Video = ""):
+        super(QCustomQWidget, self).__init__(parent)
+        # self.effect = NeumorphismEffect()
+        self.textQVBoxLayout = QVBoxLayout()
+        self.shadow_effects = dict()
+        self.shadow_effects_counter = 0
+        self.textUpQLabel = QLabel()
+        font = QFont()
+        font.setPointSize(12)
+        self.textUpQLabel.setFont(font)
+        base_size = 40
+        border_width = 2
+        # Overlap filled border-label with image
+        self.imgDownQLabel = RoundLabelImage(
+            urlpath=video.author_thumbnail,
+            size=base_size,
+            border_width=border_width,
+            border_color=QtGui.QColor(20, 60, 186)
+        )
+
+        #* FRAME
+        self.frame = QtWidgets.QFrame()
+        self.frame.setStyleSheet(
+            "color: rgb(70,130,180);\n"
+            "background-color: rgb(70,130,180);\n"
+            "text-align: center;\n"
+            "border-radius: 150px;\n"
+            "border-radius: 10px 10px 10px 10px;\n"
+            "padding: 0px;"
+        )
+        self.frame.setWindowOpacity(0.4)
+        self.frame.setFixedWidth(200)
+
+        self.textQVBoxLayout.addWidget(self.textUpQLabel)
+        self.textQVBoxLayout.addWidget(self.imgDownQLabel)
+        self.allQGrid = QGridLayout()
+        self.thumbnailQLabel = QLabel()
+        self.allQGrid.addWidget(self.thumbnailQLabel, 0, 0, 2, 1, QtCore.Qt.AlignLeft)
+        self.allQGrid.addLayout(self.textQVBoxLayout, 0, 1, 2, 1, QtCore.Qt.AlignLeft)
+        self.allQGrid.addWidget(self.frame, 1, 3, 1, 1, QtCore.Qt.AlignRight)
+        self.setLayout(self.allQGrid)
+
+        # setStyleSheet
+        self.textUpQLabel.setStyleSheet('''
+            color: rgb(70,130,180);
+        ''')
+        # self.imgDownQLabel.setStyleSheet('''
+        #     color: rgb(255, 0, 0);
+        # ''')
+
+        self.applyShadowEffect(self.imgDownQLabel)
+        self.applyShadowEffect(self.frame)
+        self.applyShadowEffect(self.thumbnailQLabel)
+
+    def applyShadowEffect(self, widget: QWidget):
+        """Same widget graphic effect instance can't be used more than once
+        else it's removed from the first widget. Workaround using a dict:"""
+        self.shadow_effects[self.shadow_effects_counter] = QGraphicsDropShadowEffect(self)
+        self.shadow_effects[self.shadow_effects_counter].setBlurRadius(10)
+        self.shadow_effects[self.shadow_effects_counter].setColor(QtGui.QColor(50, 50, 50))
+        self.shadow_effects[self.shadow_effects_counter].setOffset(2)
+        widget.setGraphicsEffect(self.shadow_effects[self.shadow_effects_counter])
+        self.shadow_effects_counter += 1
+
+    def setTextUp(self, text):
+        self.textUpQLabel.setText(text)
+        self.textUpQLabel.setSizePolicy(
+            QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        )
+        # self.textUpQLabel.setGraphicsEffect(self.effect)
+
+    def setTextDown(self, text):
+        """"""
+
+        # self.imgDownQLabel.setText(text)
+        # self.imgDownQLabel.setGraphicsEffect(self.effect)
+
+    def setIcon(self, imagePath):
+        img = QPixmap(imagePath)
+        img = img.scaledToWidth(100)
+        self.thumbnailQLabel.setPixmap(img)
+        self.thumbnailQLabel.setContentsMargins(0, 0, 20, 0)
+        self.thumbnailQLabel.setSizePolicy(
+            QSizePolicy(QSizePolicy.Maximum, QSizePolicy.MinimumExpanding)
+        )
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(10)
+        shadow.setColor(QtGui.QColor(50, 50, 50))
+        shadow.setOffset(2)
+        self.thumbnailQLabel.setGraphicsEffect(shadow)
+
+
+class RoundLabelImage(QLabel):
+    """Based on:
+    https://stackoverflow.com/questions/50819033/qlabel-with-image-in-round-shape/50821539"""
+    def __init__(
+        self, path="", urlpath="", size=50, border_width=0, border_color=None, antialiasing=True
+    ):
+        super().__init__()
+        self.setFixedSize(size, size)
+
+        if path != "":
+            source = QPixmap(path)
+        elif urlpath != "":
+            # you really shouldn't rely on functions that are possibly blocking...
+            data = urllib.request.urlopen(urlpath).read()
+
+            source = QPixmap()
+            source.loadFromData(data)
+
+        pixmap_size = size - border_width * 2
+        p = source.scaled(
+            pixmap_size, pixmap_size, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation
+        )
+
+        self.target = QPixmap(self.size())
+        self.target.fill(QtCore.Qt.transparent)
+
+        painter = QPainter(self.target)
+        if antialiasing:
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            painter.setRenderHint(QPainter.HighQualityAntialiasing, True)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+        rect = QtCore.QRectF(self.rect())
+        if border_width:
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.setBrush(QtGui.QColor(border_color))
+            painter.drawEllipse(rect)
+            rect.adjust(border_width, border_width, -border_width, -border_width)
+
+        painter_path = QPainterPath()
+        painter_path.addEllipse(rect)
+        painter.setClipPath(painter_path)
+
+        painter.drawPixmap(border_width, border_width, p)
+        self.setPixmap(self.target)
+
+    def RoundLabelClientLoader():
+        bar = foo.downloadedData()
+        # bar is only a reference, consume it before calling doDownload() again
+
+
+class MySignal(QtCore.QObject):
+    ''' Why a whole new class? See here: 
+    https://stackoverflow.com/a/25930966/2441026 '''
+    sig_no_args = QtCore.pyqtSignal()
+    sig_with_str = QtCore.pyqtSignal(str)
+
+
+class NeumorphismEffect(QtWidgets.QGraphicsEffect):
+    """Reference: 
+    https://stackoverflow.com/questions/60626717/can-i-apply-a-neumorphism-effect-to-a-qwidget
+    """
+    originChanged = QtCore.pyqtSignal(QtCore.Qt.Corner)
+    distanceChanged = QtCore.pyqtSignal(float)
+    colorChanged = QtCore.pyqtSignal(QtGui.QColor)
+    clipRadiusChanged = QtCore.pyqtSignal(int)
+
+    _cornerShift = (
+        QtCore.Qt.TopLeftCorner, QtCore.Qt.TopRightCorner, QtCore.Qt.BottomRightCorner,
+        QtCore.Qt.BottomLeftCorner
+    )
+
+    def __init__(self, distance=4, color=None, origin=QtCore.Qt.TopLeftCorner, clipRadius=0):
+        super().__init__()
+
+        self._leftGradient = QtGui.QLinearGradient(1, 0, 0, 0)
+        self._leftGradient.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
+        self._topGradient = QtGui.QLinearGradient(0, 1, 0, 0)
+        self._topGradient.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
+
+        self._rightGradient = QtGui.QLinearGradient(0, 0, 1, 0)
+        self._rightGradient.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
+        self._bottomGradient = QtGui.QLinearGradient(0, 0, 0, 1)
+        self._bottomGradient.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
+
+        self._radial = QtGui.QRadialGradient(.5, .5, .5)
+        self._radial.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
+        self._conical = QtGui.QConicalGradient(.5, .5, 0)
+        self._conical.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
+
+        self._origin = origin
+        distance = max(0, distance)
+        self._clipRadius = min(distance, max(0, clipRadius))
+        self._setColor(color or QtWidgets.QApplication.palette().color(QtGui.QPalette.Window))
+        self._setDistance(distance)
+
+    def color(self):
+        return self._color
+
+    @QtCore.pyqtSlot(QtGui.QColor)
+    @QtCore.pyqtSlot(QtCore.Qt.GlobalColor)
+    def setColor(self, color):
+        if isinstance(color, QtCore.Qt.GlobalColor):
+            color = QtGui.QColor(color)
+        if color == self._color:
+            return
+        self._setColor(color)
+        self._setDistance(self._distance)
+        self.update()
+        self.colorChanged.emit(self._color)
+
+    def _setColor(self, color):
+        self._color = color
+        self._baseStart = color.lighter(125)
+        self._baseStop = QtGui.QColor(self._baseStart)
+        self._baseStop.setAlpha(0)
+        self._shadowStart = self._baseStart.darker(125)
+        self._shadowStop = QtGui.QColor(self._shadowStart)
+        self._shadowStop.setAlpha(0)
+
+        self.lightSideStops = [(0, self._baseStart), (1, self._baseStop)]
+        self.shadowSideStops = [(0, self._shadowStart), (1, self._shadowStop)]
+        self.cornerStops = [
+            (0, self._shadowStart), (.25, self._shadowStop), (.75, self._shadowStop),
+            (1, self._shadowStart)
+        ]
+
+        self._setOrigin(self._origin)
+
+    def distance(self):
+        return self._distance
+
+    def setDistance(self, distance):
+        if distance == self._distance:
+            return
+        oldRadius = self._clipRadius
+        self._setDistance(distance)
+        self.updateBoundingRect()
+        self.distanceChanged.emit(self._distance)
+        if oldRadius != self._clipRadius:
+            self.clipRadiusChanged.emit(self._clipRadius)
+
+    def _getCornerPixmap(self, rect, grad1, grad2=None):
+        pm = QtGui.QPixmap(self._distance + self._clipRadius, self._distance + self._clipRadius)
+        pm.fill(QtCore.Qt.transparent)
+        qp = QtGui.QPainter(pm)
+        if self._clipRadius > 1:
+            path = QtGui.QPainterPath()
+            path.addRect(rect)
+            size = self._clipRadius * 2 - 1
+            mask = QtCore.QRectF(0, 0, size, size)
+            mask.moveCenter(rect.center())
+            path.addEllipse(mask)
+            qp.setClipPath(path)
+        qp.fillRect(rect, grad1)
+        if grad2:
+            qp.setCompositionMode(qp.CompositionMode_SourceAtop)
+            qp.fillRect(rect, grad2)
+        qp.end()
+        return pm
+
+    def _setDistance(self, distance):
+        distance = max(1, distance)
+        self._distance = distance
+        if self._clipRadius > distance:
+            self._clipRadius = distance
+        distance += self._clipRadius
+        r = QtCore.QRectF(0, 0, distance * 2, distance * 2)
+
+        lightSideStops = self.lightSideStops[:]
+        shadowSideStops = self.shadowSideStops[:]
+        if self._clipRadius:
+            gradStart = self._clipRadius / (self._distance + self._clipRadius)
+            lightSideStops[0] = (gradStart, lightSideStops[0][1])
+            shadowSideStops[0] = (gradStart, shadowSideStops[0][1])
+
+        # create the 4 corners as if the light source was top-left
+        self._radial.setStops(lightSideStops)
+        topLeft = self._getCornerPixmap(r, self._radial)
+
+        self._conical.setAngle(359.9)
+        self._conical.setStops(self.cornerStops)
+        topRight = self._getCornerPixmap(r.translated(-distance, 0), self._radial, self._conical)
+
+        self._conical.setAngle(270)
+        self._conical.setStops(self.cornerStops)
+        bottomLeft = self._getCornerPixmap(r.translated(0, -distance), self._radial, self._conical)
+
+        self._radial.setStops(shadowSideStops)
+        bottomRight = self._getCornerPixmap(r.translated(-distance, -distance), self._radial)
+
+        # rotate the images according to the actual light source
+        images = topLeft, topRight, bottomRight, bottomLeft
+        shift = self._cornerShift.index(self._origin)
+        if shift:
+            transform = QtGui.QTransform().rotate(shift * 90)
+            for img in images:
+                img.swap(img.transformed(transform, QtCore.Qt.SmoothTransformation))
+
+        # and reorder them if required
+        self.topLeft, self.topRight, self.bottomRight, self.bottomLeft = images[-shift:
+                                                                                ] + images[:-shift]
+
+    def origin(self):
+        return self._origin
+
+    @QtCore.pyqtSlot(QtCore.Qt.Corner)
+    def setOrigin(self, origin):
+        origin = QtCore.Qt.Corner(origin)
+        if origin == self._origin:
+            return
+        self._setOrigin(origin)
+        self._setDistance(self._distance)
+        self.update()
+        self.originChanged.emit(self._origin)
+
+    def _setOrigin(self, origin):
+        self._origin = origin
+
+        gradients = self._leftGradient, self._topGradient, self._rightGradient, self._bottomGradient
+        stops = self.lightSideStops, self.lightSideStops, self.shadowSideStops, self.shadowSideStops
+
+        # assign color stops to gradients based on the light source position
+        shift = self._cornerShift.index(self._origin)
+        for grad, stops in zip(gradients, stops[-shift:] + stops[:-shift]):
+            grad.setStops(stops)
+
+    def clipRadius(self):
+        return self._clipRadius
+
+    @QtCore.pyqtSlot(int)
+    @QtCore.pyqtSlot(float)
+    def setClipRadius(self, radius):
+        if radius == self._clipRadius:
+            return
+        oldRadius = self._clipRadius
+        self._setClipRadius(radius)
+        self.update()
+        if oldRadius != self._clipRadius:
+            self.clipRadiusChanged.emit(self._clipRadius)
+
+    def _setClipRadius(self, radius):
+        radius = min(self._distance, max(0, int(radius)))
+        self._clipRadius = radius
+        self._setDistance(self._distance)
+
+    def boundingRectFor(self, rect):
+        d = self._distance + 1
+        return rect.adjusted(-d, -d, d, d)
+
+    def draw(self, qp):
+        restoreTransform = qp.worldTransform()
+
+        qp.setPen(QtCore.Qt.NoPen)
+        x, y, width, height = self.sourceBoundingRect(QtCore.Qt.DeviceCoordinates).getRect()
+        right = x + width
+        bottom = y + height
+        clip = self._clipRadius
+        doubleClip = clip * 2
+
+        qp.setWorldTransform(QtGui.QTransform())
+        leftRect = QtCore.QRectF(x - self._distance, y + clip, self._distance, height - doubleClip)
+        qp.setBrush(self._leftGradient)
+        qp.drawRect(leftRect)
+
+        topRect = QtCore.QRectF(x + clip, y - self._distance, width - doubleClip, self._distance)
+        qp.setBrush(self._topGradient)
+        qp.drawRect(topRect)
+
+        rightRect = QtCore.QRectF(right, y + clip, self._distance, height - doubleClip)
+        qp.setBrush(self._rightGradient)
+        qp.drawRect(rightRect)
+
+        bottomRect = QtCore.QRectF(x + clip, bottom, width - doubleClip, self._distance)
+        qp.setBrush(self._bottomGradient)
+        qp.drawRect(bottomRect)
+
+        qp.drawPixmap(x - self._distance, y - self._distance, self.topLeft)
+        qp.drawPixmap(right - clip, y - self._distance, self.topRight)
+        qp.drawPixmap(right - clip, bottom - clip, self.bottomRight)
+        qp.drawPixmap(x - self._distance, bottom - clip, self.bottomLeft)
+
+        qp.setWorldTransform(restoreTransform)
+        if self._clipRadius:
+            path = QtGui.QPainterPath()
+            source, offset = self.sourcePixmap(QtCore.Qt.DeviceCoordinates)
+
+            sourceBoundingRect = self.sourceBoundingRect(QtCore.Qt.DeviceCoordinates)
+            qp.save()
+            qp.setTransform(QtGui.QTransform())
+            path.addRoundedRect(sourceBoundingRect, self._clipRadius, self._clipRadius)
+            qp.setClipPath(path)
+            qp.drawPixmap(source.rect().translated(offset), source)
+            qp.restore()
+        else:
+            self.drawSource(qp)
+
+
+#########################################################################
+#########################################################################
+##### INITIALIZE UPON IMPORT
+#########################################################################
+#########################################################################
+
+app = qtw.QApplication(sys.argv)
+app.setStyle('Fusion')
+app.setStyleSheet("")
+app.setApplicationName("Youtube Scraper")
+app_icon = QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png')))
+app.setWindowIcon(app_icon)
+path = Path.joinpath(BASEDIR, 'data', 'fonts', 'Fira_Sans', 'FiraSans-Medium.ttf')
+print(path)
+id = QtGui.QFontDatabase.addApplicationFont(str(path))
+family = QtGui.QFontDatabase.applicationFontFamilies(id)[0]
+font = QtGui.QFont(family, 9)
+app.setFont(font)
+w = NewWindow()  # Instantiate window factory
+app.aboutToQuit.connect(w.shutdown)
+
+timer = QtCore.QTimer()
+timer.timeout.connect(lambda: None)
+timer.start(100)
+
+sys.exit(app.exec_())
