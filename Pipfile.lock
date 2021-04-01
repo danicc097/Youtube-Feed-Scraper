@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f74d5c016dc5ddaf83cb72e231d49aaac735d67a583421073da04c3cc1a6c754"
+            "sha256": "a4de493ef86e88f35177f0cf95b1647727cb4c1a99c10ef83bc755c830f287ce"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -216,6 +216,21 @@
             ],
             "markers": "sys_platform == 'win32'",
             "version": "==0.2.0"
+        },
+        "qtmodern": {
+            "hashes": [
+                "sha256:57e62617656494a9d8a27ac3bd51ae3ae61a265f43b92d6f6ea59dc8bed2179d",
+                "sha256:d433a54fbb400d49790aff65d35f203de2a8cc67795ac5bb04c5e766433fafae"
+            ],
+            "index": "pypi",
+            "version": "==0.2.0"
+        },
+        "qtpy": {
+            "hashes": [
+                "sha256:2db72c44b55d0fe1407be8fba35c838ad0d6d3bb81f23007886dc1fc0f459c8d",
+                "sha256:fa0b8363b363e89b2a6f49eddc162a04c0699ae95e109a6be3bb145a913190ea"
+            ],
+            "version": "==1.9.0"
         },
         "six": {
             "hashes": [

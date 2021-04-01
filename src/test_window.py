@@ -49,6 +49,13 @@ if hasattr(sys, 'frozen'):
 else:
     basis = sys.argv[0]
 
+#* Fix qtmodern stylesheets in runtime (plus spec file edit)
+root = Path()
+if getattr(sys, 'frozen', False):
+    root = Path(sys._MEIPASS)
+    qtmodern.styles._STYLESHEET = root / 'qtmodern/style.qss'
+    qtmodern.windows._FL_STYLESHEET = root / 'qtmodern/frameless.qss'
+
 RUNTIME_DIR = Path(os.path.split(basis)[0])
 print(f"RUNTIME_DIR is {RUNTIME_DIR}")
 
@@ -76,12 +83,16 @@ class NewWindow(QMainWindow):
         window = MainWindow(self)
         window.setWindowTitle("Youtube Scraper")
         window.setWindowIcon(app_icon)
-        self.window_list.append(window)
+        self.window_list.append(window)  # it's not garbage
 
+        #* Fancier style
         qtmodern.styles.light(app)
-        mw = qtmodern.windows.ModernWindow(window)
-        self.center(mw)
-        mw.show()
+        # not garbage either
+        self.mw = qtmodern.windows.ModernWindow(window)
+        self.center(self.mw)
+        self.mw.show()
+
+        #* Classic style
         # self.center(window)
         # window.show()
 
@@ -107,6 +118,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.GUI_preferences = QtCore.QSettings(
             self.GUI_preferences_path, QtCore.QSettings.IniFormat
         )
+        #* Object names not to be saved to settings
+        self.objects_to_exclude = ["listWidgetVideos"]
         self.app_downloader = DownLoader()  # only one instance necessary for the whole app
         self.widgets_with_hover = []
         # workaround for graphics effect limitation
@@ -116,7 +129,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.config_is_set = 0
         self.save_to_runtimedir = False
         self.message_is_being_shown = False
-        self.FILEBROWSER_PATH = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
+        # self.FILEBROWSER_PATH = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
         self.threadpool = QtCore.QThreadPool()
         self.img_sync = QPixmap(str(Path.joinpath(BASEDIR, 'data', 'synchronize-icon.png')))
         self.img_sync = self.img_sync.scaled(
@@ -185,7 +198,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 pass
         else:
             with open(self.GUI_preferences_path, 'w'):
-                guisave(self, self.GUI_preferences)
+                guisave(self, self.GUI_preferences, self.objects_to_exclude)
 
         self.actionGitHub_Homepage.triggered.connect(self.GitHubLink)
         self.actionOpen.triggered.connect(self.readFile)
@@ -207,18 +220,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         json_var = get_yt_source_text(from_local_dir=True)
         my_videos = get_my_videos(json_var)
-        #### Quick view
-        i = 0
-        for id, video in my_videos.items():
-            if i >= 3:
-                break
-            print('\n'.join("'%s': '%s', " % item for item in vars(video).items()))
-            print("---------------------------")
-            i += 1
-        #### END Quick view
+
+        # #### Quick view
+        # i = 0
+        # for id, video in my_videos.items():
+        #     if i >= 3:
+        #         break
+        #     print('\n'.join("'%s': '%s', " % item for item in vars(video).items()))
+        #     print("---------------------------")
+        #     i += 1
+        # #### END Quick view
+
         #* Fill QListWidget with custom widgets
         for video_id, video in my_videos.items():
-            # Create QCustomQWidget
             myQCustomQWidget = QCustomQWidget(video=video)
             #TODO: use rounded card styles with QFrames
             """
@@ -232,18 +246,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             vid_thumbnail = QImage()
             vid_thumbnail.loadFromData(data)
             myQCustomQWidget.setIcon(vid_thumbnail)
-            # Create QListWidgetItem
             myQListWidgetItem = QListWidgetItem(self.listWidgetVideos)
-            # Set size hint
             myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
-            # Add QListWidgetItem into QListWidget
             self.listWidgetVideos.addItem(myQListWidgetItem)
             self.listWidgetVideos.setItemWidget(myQListWidgetItem, myQCustomQWidget)
-            # don't apply graphics effect to parent, only lowest children
+            self.listWidgetVideos
 
         #* Expandable section below
-        spoiler = Spoiler(title="TEST")
-        self.applyShadowEffect(spoiler)
+        spoiler = Spoiler(title="TEST", ref_parent=self)
+        self.applyEffectOnHover(spoiler)
         self.gridLayout.addWidget(spoiler)
 
         qtw.QAction("Quit", self).triggered.connect(self.closeEvent)
@@ -280,21 +291,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.shadow_effects_counter += 1
 
     def applyEffectOnHover(self, widget: QWidget):
-        """Installs an event filter to display a shadow upon hovering"""
+        """Installs an event filter to display a shadow upon hovering.
+        The event filter is MainWindow. An event filter receives all events 
+        that are sent to this object."""
         widget.installEventFilter(self)
         self.widgets_with_hover.append(widget)
-
-    def eventFilter(self, object, event):
-        if isinstance(object, QWidget) and object in self.widgets_with_hover:
-            if event.type() == QtCore.QEvent.Enter:
-                print("Mouse is over the widget ")
-                self.applyShadowEffect(object, color=QColor(16, 47, 151), blur_radius=20, offset=0)
-
-                return True
-            elif event.type() == QtCore.QEvent.Leave:
-                print("Mouse is not over the widget ")
-                object.setGraphicsEffect(None)
-        return False
 
     def GitHubLink(self):
         QtGui.QDesktopServices.openUrl(
@@ -326,7 +327,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             try:
                 self.my_settings = QtCore.QSettings(self.filename, QtCore.QSettings.IniFormat)
                 # all values will be returned as QString
-                guisave(self, self.my_settings)
+                guisave(self, self.my_settings, self.objects_to_exclude)
                 self.save_to_runtimedir = False
                 self.statusBar().showMessage("Changes saved to: {}".format(self.filename))
             except Exception as e:
@@ -336,12 +337,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Saves GUI user input to the previously opened config file"""
         #* A config file was found at runtime and restored
         if self.save_to_runtimedir:
-            guisave(self, self.GUI_preferences)
+            self.statusBar().showMessage("Changes saved to: {}".format(self.GUI_preferences_path))
+            guisave(self, self.GUI_preferences, self.objects_to_exclude)
         #* A config file was opened from the menu
         elif self.config_is_set and self.filename != "":
             self.statusBar().showMessage("Changes saved to: {}".format(self.filename))
             self.my_settings = QtCore.QSettings(self.filename, QtCore.QSettings.IniFormat)
-            guisave(self, self.my_settings)
+            guisave(self, self.my_settings, self.objects_to_exclude)
         else:
             self.writeNewFile()
 
@@ -417,6 +419,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     #######################################################
     ##### EVENTS
     #######################################################
+
+    def eventFilter(self, object, event):
+        if isinstance(object, QWidget) and object in self.widgets_with_hover:
+            if event.type() == QtCore.QEvent.Enter:
+                print("Mouse is over the widget ")
+                self.applyShadowEffect(object, color=QColor(16, 47, 151), blur_radius=20, offset=0)
+
+                return True
+            elif event.type() == QtCore.QEvent.Leave:
+                print("Mouse is not over the widget ")
+                object.setGraphicsEffect(None)
+        return False
 
     def changeEvent(self, event):
         """Hides the system tray icon when the main window is visible, and viceversa."""
@@ -571,19 +585,20 @@ def get_yt_source_text(from_local_dir=False, save_to_local_dir=False, last_video
 
 
 class Spoiler(QWidget):
-    def __init__(self, parent=None, title='', animationDuration=300):
+    def __init__(self, parent=None, title='', animationDuration=300, ref_parent=None):
         """
         Collapsable and expandable section.
         Based on:
         http://stackoverflow.com/questions/32476006/how-to-make-an-expandable-collapsable-section-widget-in-qt
         """
         super(Spoiler, self).__init__(parent=parent)
-
+        self.ref_parent = ref_parent
         self.animationDuration = animationDuration
         self.toggleAnimation = QtCore.QParallelAnimationGroup()
         self.contentArea = QScrollArea()
         self.headerLine = QFrame()
         self.toggleButton = QToolButton()
+        self.already_filtered = True
         mainLayout = QGridLayout()
 
         toggleButton = self.toggleButton
@@ -631,8 +646,23 @@ class Spoiler(QWidget):
             toggleButton.setArrowType(arrow_type)
             self.toggleAnimation.setDirection(direction)
             self.toggleAnimation.start()
+            self.applyShadowEffect()
 
         self.toggleButton.clicked.connect(start_animation)
+
+    def applyShadowEffect(self, color=QColor(50, 50, 50), blur_radius=10, offset=2):
+        effect = QGraphicsDropShadowEffect(self)
+        effect.setBlurRadius(blur_radius)
+        effect.setColor(color)
+        effect.setOffset(offset)
+        if self.already_filtered:
+            self.removeEventFilter(self.ref_parent)
+            self.already_filtered = False
+        else:
+            self.installEventFilter(self.ref_parent)
+            self.already_filtered = True
+
+        self.setGraphicsEffect(effect)
 
     def setContentLayout(self, contentLayout: QLayout):
         """Adds a layout ``contentLayout`` to the spoiler area"""

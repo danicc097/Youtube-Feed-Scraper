@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Daniel Castro
+# Copyright (C) 2021 Daniel Castro
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
