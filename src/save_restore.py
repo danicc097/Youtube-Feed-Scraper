@@ -119,7 +119,7 @@ def guirestore(self, settings):
             try:
                 name = obj.objectName()
                 value = str(settings.value(name))
-                if value == "" or value == "None":
+                if value in ["", "None"]:
                     continue
                 # Restore the index associated to the string
                 index = obj.findText(value)
@@ -127,9 +127,7 @@ def guirestore(self, settings):
                 if index == -1:
                     obj.insertItems(0, [value])
                     index = obj.findText(value)
-                    obj.setCurrentIndex(index)
-                else:
-                    obj.setCurrentIndex(index)
+                obj.setCurrentIndex(index)
             except:
                 pass
 
@@ -198,7 +196,7 @@ def guirestore(self, settings):
 def grab_GC(window, settings):
     """Creates a global dictionary from the values 
     stored in the given QSettings file (.ini format)"""
-    GC = dict()
+    GC = {}
     for name, obj in inspect.getmembers(window):
 
         if isinstance(obj, QLineEdit):
