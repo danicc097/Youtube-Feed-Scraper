@@ -13,7 +13,6 @@ import tempfile
 import threading
 import time
 import traceback
-import urllib.request
 import webbrowser
 from pathlib import Path
 
@@ -27,7 +26,8 @@ from PyQt5 import QtCore, QtGui
 from PyQt5 import QtWidgets
 from PyQt5 import QtWidgets as qtw
 from PyQt5.QtGui import (
-    QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPixmap, QStandardItem, QStandardItemModel
+    QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPixmap, QRegion, QStandardItem,
+    QStandardItemModel
 )
 from PyQt5.QtWidgets import (
     QAbstractButton, QApplication, QCompleter, QDesktopWidget, QFrame, QGraphicsDropShadowEffect,
@@ -35,7 +35,7 @@ from PyQt5.QtWidgets import (
     QScrollArea, QSizePolicy, QSystemTrayIcon, QTableWidget, QTableWidgetItem, QToolButton,
     QTreeView, QVBoxLayout, QWidget
 )
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import QRectF, pyqtSignal, pyqtSlot
 from PyQt5.QtCore import QObject, QByteArray, QUrl
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from youtube_dl import YoutubeDL
@@ -224,12 +224,9 @@ class CustomNetworkManager(QObject):
 
     def __init__(self):
         super(CustomNetworkManager, self).__init__()  # init QObject
-        self._manager = QNetworkAccessManager()
+        self._manager = QNetworkAccessManager(finished=self._downloadFinished)
 
-        # A ++pending++ network reply is finished -> finished signal
-        # ? signal for empty queue to allow for entire download list clearing ?
-        self._manager.finished.connect(self._downloadFinished)
-
+    @pyqtSlot(QNetworkReply)
     def _downloadFinished(self, reply: QNetworkReply):
         '''Handle signal 'finished'.  A network request has finished.'''
         error = reply.error()
@@ -259,14 +256,10 @@ class NewWindow(QMainWindow):
 
     def add_new_window(self):
         """Creates new MainWindow instance."""
-        self.app_icon = QIcon()
-        app_icon_path = str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))
-        self.app_icon.addFile(app_icon_path)
-        app.setWindowIcon(self.app_icon)
         app_icon = QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png')))
-        app.setWindowIcon(app_icon)
         window = MainWindow(self)
         window.setWindowTitle("Youtube Scraper")
+        app.setWindowIcon(app_icon)
         window.setWindowIcon(app_icon)
         self.window_list.append(window)  # it's not garbage
 
@@ -320,6 +313,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # workaround for graphics effect limitation
         self.shadow_effects = {}
         self.shadow_effects_counter = 0
+        self.item_widget_to_repaint = None
 
         #* QSettings
         self.config_is_set = 0
@@ -333,23 +327,33 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.signal.sig_sync_icon.connect(self.add_sync_icon)
         # self.signal.sig_sync_icon.emit("Loading YouTube data...", True)
 
+        self.icons = {
+            "playback_play": str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png')),
+            "playback_pause": str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_pause.png')),
+            "playback_ff": str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_ff.png')),
+            "playback_rew": str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_rew.png')),
+            "save": str(Path.joinpath(BASEDIR, 'data', 'images', 'save.png')),
+            "open": str(Path.joinpath(BASEDIR, 'data', 'images', 'open.png')),
+            "about": str(Path.joinpath(BASEDIR, 'data', 'images', 'about.png')),
+            "settings": str(Path.joinpath(BASEDIR, 'data', 'images', 'settings.png')),
+            "exit": str(Path.joinpath(BASEDIR, 'data', 'images', 'exit.png')),
+            "github": str(Path.joinpath(BASEDIR, 'data', 'images', 'github.png')),
+            "main-icon": str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))
+        }
+
         self.actionPLAY.setFlat(True)
-        play_icon = QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png')))
-        pause_icon = QPixmap(str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_pause.png')))
+        play_icon = QIcon(self.icons["playback_play"])
+        pause_icon = QPixmap(self.icons["playback_pause"])
         # replace with pause icon on button click
         play_icon.addPixmap(pause_icon, QtGui.QIcon.Active, QtGui.QIcon.On)
         self.actionPLAY.setIcon(play_icon)
         self.actionPLAY.setIconSize(QtCore.QSize(48, 48))
         self.actionFF.setFlat(True)
-        self.actionFF.setIcon(
-            QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_ff.png')))
-        )
+        self.actionFF.setIcon(QIcon(self.icons["playback_ff"]))
 
         self.actionFF.setIconSize(QtCore.QSize(32, 32))
         self.actionREW.setFlat(True)
-        self.actionREW.setIcon(
-            QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_rew.png')))
-        )
+        self.actionREW.setIcon(QIcon(self.icons["playback_rew"]))
         self.actionREW.setIconSize(QtCore.QSize(32, 32))
 
         self.applyShadowEffect(
@@ -362,16 +366,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.actionPLAY.clicked.connect(self.onPlay)
 
-        self.actionSave.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'save.png'))))
-        self.actionOpen.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'open.png'))))
-        self.actionAbout.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'about.png'))))
-        self.actionEdit.setIcon(
-            QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'settings.png')))
-        )
-        self.actionExit.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'exit.png'))))
-        self.actionGitHub_Homepage.setIcon(
-            QIcon(str(Path.joinpath(BASEDIR, 'data', 'images', 'github.png')))
-        )
+        self.actionSave.setIcon(QIcon(self.icons["save"]))
+        self.actionOpen.setIcon(QIcon(self.icons["open"]))
+        self.actionAbout.setIcon(QIcon(self.icons["about"]))
+        self.actionEdit.setIcon(QIcon(self.icons["settings"]))
+        self.actionExit.setIcon(QIcon(self.icons["exit"]))
+        self.actionGitHub_Homepage.setIcon(QIcon(self.icons["github"]))
 
         # Thread runner
         self.runner = None
@@ -385,8 +385,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             except:
                 pass
         else:
-            with open(self.GUI_preferences_path, 'w'):
+            with open(self.GUI_preferences_path, 'w') as f:
                 guisave(self, self.GUI_preferences, self.objects_to_exclude)
+                f.close()
 
         self.actionGitHub_Homepage.triggered.connect(self.GitHubLink)
         self.actionOpen.triggered.connect(self.readFile)
@@ -422,7 +423,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         #* Fill QListWidget with custom widgets
         for video_id, video in my_videos.items():
-            ListWidget_item_widget = QCustomQWidget(video=video)
+            ListWidget_item_widget = QCustomQWidget(video=video, ref_parent=self)
             author_thumbnail_sender = Sender("author_thumbnail", ListWidget_item_widget)
             # it's not garbage. Else the reply will return a destroyed Sender
             self.sender_list.append(author_thumbnail_sender)
@@ -437,33 +438,52 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             Set a stylesheel to QFrame, for example:
             """
             ListWidget_item_widget.setTextUp(video.title)
-            url = video.thumbnail
-            # data = urllib.request.urlopen(url).read()
             vid_thumbnail_sender = Sender("vid_thumbnail", ListWidget_item_widget)
             # it's not garbage. Else the reply will return a destroyed Sender
             self.sender_list.append(vid_thumbnail_sender)
+            url = video.thumbnail
             self.network_manager.startDownload(url, vid_thumbnail_sender)
-            # data = self.network_manager.downloadedData()
-            # print(data)
-            # vid_thumbnail = QImage()
-            # vid_thumbnail.loadFromData(data)
-            # ListWidget_item_widget.setIcon(vid_thumbnail)
+
+            # no need to subclass QListWidgetItem, just the widget set on it
             ListWidget_item = QListWidgetItem(self.listWidgetVideos)
             ListWidget_item.setSizeHint(ListWidget_item_widget.sizeHint())
             self.listWidgetVideos.addItem(ListWidget_item)
             self.listWidgetVideos.setItemWidget(ListWidget_item, ListWidget_item_widget)
 
         #* Expandable section below
-        spoiler = Spoiler(title="TEST", ref_parent=self)
+        spoiler = Spoiler(title="Settings", ref_parent=self)
         self.applyEffectOnHover(spoiler)
         self.gridLayout.addWidget(spoiler)
 
         qtw.QAction("Quit", self).triggered.connect(self.closeEvent)
 
-    def qlist_focus_color(self, item):
+    def qlist_focus_color(self, item: QListWidgetItem):
+        """Called when a QListWidget item is clicked"""
+        widget = item.listWidget().itemWidget(item)
+        # return rest of list items to original state
         for i in range(self.listWidgetVideos.count()):
-            self.listWidgetVideos.item(i).setBackground(QColor(237, 237, 237))
-        item.setBackground(QColor(174, 174, 174))
+            item_i = self.listWidgetVideos.item(i)
+            item_i.setBackground(QColor(237, 237, 237))
+            textUpQLabel = self.listWidgetVideos.itemWidget(item_i).textUpQLabel
+            textUpQLabel.setGraphicsEffect(None)
+            textUpQLabel.setStyleSheet('''color: rgb(70,130,180);''')
+            authorQLabel = self.listWidgetVideos.itemWidget(item_i).authorQLabel
+            self.applyShadowEffect(authorQLabel)
+            thumbnailQLabel = self.listWidgetVideos.itemWidget(item_i).thumbnailQLabel
+            self.applyShadowEffect(thumbnailQLabel)
+            frame = self.listWidgetVideos.itemWidget(item_i).frame
+            self.applyShadowEffect(frame)
+
+        self.applyShadowEffect(widget.authorQLabel, color=QColor(194, 194, 214))
+        self.applyShadowEffect(widget.thumbnailQLabel, color=QColor(194, 194, 214))
+        self.applyShadowEffect(widget.frame, color=QColor(194, 194, 214))
+        widget.textUpQLabel.setStyleSheet('''
+            color: rgb(250,250,250);
+        ''')
+        self.applyShadowEffect(widget.textUpQLabel)
+        self.item_widget_to_repaint = widget
+        # self.listWidgetVideos.update()
+        item.setBackground(QColor(194, 194, 214))
 
     def singleTimer(self, seconds, fn):
         """Single use timer that connects to ``fn`` after ``seconds``"""
@@ -930,10 +950,36 @@ class Spoiler(QWidget):
         contentAnimation.setEndValue(contentHeight)
 
 
+class QCustomFrame(QFrame):
+    def __init__(self, parent=None, video: Video = "", ref_parent=None):
+        super(QFrame, self).__init__(parent)
+
+    # #TODO subclass QFrame and reimplement for it as well. Replace frame class.
+    # def paintEvent(self, event):
+    #     # if not self.frame: return
+    #     # QtWidgets.QFrame.paintEvent(self, event)
+    #     target = self
+    #     painter = QPainter(self)
+    #     painter.setRenderHint(QPainter.Antialiasing, True)
+    #     painter.setRenderHint(QPainter.HighQualityAntialiasing, True)
+    #     painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+    #     rect = QRectF(target.rect())
+
+    #     painter_path = QPainterPath()
+    #     painter_path.addRoundedRect(rect, 10, 10)
+    #     painter.fillPath(painter_path, QtGui.QBrush(QColor(224, 224, 224)))
+    #     painter.setPen(QtCore.Qt.NoPen)  # remove border when clipping
+    #     painter.drawPath(painter_path)
+    #     painter.setClipPath(painter_path)
+    #     painter.end()
+
+
 class QCustomQWidget(QWidget):
-    def __init__(self, parent=None, video: Video = ""):
+    def __init__(self, parent=None, video: Video = "", ref_parent=None):
         super(QCustomQWidget, self).__init__(parent)
         self.textQVBoxLayout = QVBoxLayout()
+        self.ref_parent = ref_parent
         self.shadow_effects = {}
         self.shadow_effects_counter = 0
         self.textUpQLabel = QLabel()
@@ -949,17 +995,21 @@ class QCustomQWidget(QWidget):
         )
 
         #* FRAME
-        self.frame = QtWidgets.QFrame()
+        self.frame = QCustomFrame()
         self.frame.setStyleSheet(
-            "color: rgb(70,130,180);\n"
-            "background-color: rgb(70,130,180);\n"
-            "text-align: center;\n"
-            "border-radius: 150px;\n"
-            "border-radius: 10px 10px 10px 10px;\n"
+            "color: rgb(237, 237, 237);"
+            "background-color: rgb(237, 237, 237);"
+            "text-align: center;"
+            "border-style: solid;"
+            "border-width: 0px 0px 0px 2px;"
+            "border-color: white white white rgb(67, 142, 200);"
+            # "border-radius: 7px 7px 7px 7px;"
             "padding: 0px;"
         )
         self.frame.setWindowOpacity(0.4)
         self.frame.setFixedWidth(200)
+
+        # self.frame.show()
 
         self.textQVBoxLayout.addWidget(self.textUpQLabel)
         self.textQVBoxLayout.addWidget(self.authorQLabel)
@@ -981,6 +1031,45 @@ class QCustomQWidget(QWidget):
         self.applyShadowEffect(self.authorQLabel)
         self.applyShadowEffect(self.frame)
         self.applyShadowEffect(self.thumbnailQLabel)
+
+    #TODO subclass QFrame and reimplement for it as well. Replace frame class.
+    def paintEvent(self, event):
+        # if not self.frame: return
+        # QtWidgets.QFrame.paintEvent(self, event)
+        target = self
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.HighQualityAntialiasing, True)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+        rect = QRectF(target.rect())
+
+        painter_path = QPainterPath()
+        painter_path.addRoundedRect(rect, 10, 10)
+        painter.fillPath(painter_path, QtGui.QBrush(QColor(224, 224, 224)))
+        painter.setPen(QtCore.Qt.NoPen)  # remove border when clipping
+        painter.drawPath(painter_path)
+        painter.setClipPath(painter_path)
+        painter.end()  # this painter has to be stopped first
+
+        if self.ref_parent.item_widget_to_repaint is not None:
+            self.onClickRepaint(self.ref_parent.item_widget_to_repaint, painter)
+
+    def onClickRepaint(self, target, painter):
+        painter.begin(target)  # begin painter for the clicked item only
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.HighQualityAntialiasing, True)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+        rect = QRectF(target.rect())
+
+        painter_path = QPainterPath()
+        painter_path.addRoundedRect(rect, 10, 10)
+        painter.fillPath(painter_path, QtGui.QBrush(QColor(129, 173, 244)))
+        painter.setPen(QtCore.Qt.NoPen)  # remove border when clipping
+        painter.drawPath(painter_path)
+        painter.setClipPath(painter_path)
+        painter.end()
 
     def applyShadowEffect(self, widget: QWidget):
         """Same widget graphic effect instance can't be used more than once
@@ -1033,12 +1122,11 @@ class RoundLabelImage(QLabel):
         self.setFixedSize(size, size)
 
         if path != "":
-            self.source = QPixmap(path)
             self.set_round_label(from_local_path=True)
 
     def set_round_label(self, data: QByteArray = None, from_local_path=False):
         if from_local_path:
-            pass
+            self.source = QPixmap(path)
         else:
             self.source = QPixmap()
             self.source.loadFromData(data)
@@ -1070,7 +1158,8 @@ class RoundLabelImage(QLabel):
         painter.setClipPath(painter_path)
 
         painter.drawPixmap(self._border_width, self._border_width, p)
-
+        painter.end()  # must be called if there are multiple painters
+        painter = None
         self.setPixmap(self.target)
 
 

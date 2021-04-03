@@ -8,6 +8,7 @@ if (Test-Path $specPath -PathType leaf) {
 } 
 else {
     # create spec for first time
+    & $venvPath 
     pipenv run pyi-makespec main.py `
         --onefile `
         --name "YouTube-Scraper-windows" `

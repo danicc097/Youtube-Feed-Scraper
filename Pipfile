@@ -12,6 +12,7 @@ jsonpath-ng = "*"
 pyqt5 = "*"
 pyinstaller = "*"
 qtmodern = "*"
+youtube-dl = "*"
 
 [requires]
 python_version = "3.8"
