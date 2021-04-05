@@ -43,6 +43,7 @@ from youtube_dl import YoutubeDL
 from .designer.YoutubeScraper import Ui_MainWindow
 from .resources import get_path
 from .save_restore import grab_GC, guirestore, guisave
+# from qt_material import apply_stylesheet
 
 BASEDIR = get_path(Path(__file__).parent)
 print(f"BASEDIR is {BASEDIR}")
@@ -110,21 +111,11 @@ class CustomYoutubeDL():
 class WorkerSignals(QtCore.QObject):
     '''
     Defines the signals available from a running worker thread.
-
     Supported signals are:
-
-    finished
-        No data
-
-    error
-        tuple (exctype, value, traceback.format_exc() )
-
-    result
-        object data returned from processing, anything
-
-    progress
-        int indicating % progress
-
+    ``finished``: No data
+    ``error``: tuple (exctype, value, traceback.format_exc() )
+    ``result``: object data returned from processing, anything
+    ``progress``: int indicating % progress
     '''
     finished = QtCore.pyqtSignal()
     error = QtCore.pyqtSignal(tuple)
@@ -138,11 +129,11 @@ class Worker(QtCore.QRunnable):
 
     Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
 
-    :param callback: The function callback to run on this worker thread. Supplied args and
+    ``param callback`` The function callback to run on this worker thread. Supplied args and
                      kwargs will be passed through to the runner.
-    :type callback: function
-    :param args: Arguments to pass to the callback function
-    :param kwargs: Keywords to pass to the callback function
+    ``type callback`` function
+    ``param args`` Arguments to pass to the callback function
+    ``param kwargs`` Keywords to pass to the callback function
 
     '''
     def __init__(self, fn, *args, **kwargs):
@@ -184,24 +175,30 @@ class Worker(QtCore.QRunnable):
 
 class Sender(QObject):
     """To be used as QNetworkReply and QNetworkRequest ``originatingObject``."""
-    def __init__(self, _sender_name, _sender_object):
+    def __init__(self, sender_name, sender_object):
         super().__init__()
-        self._sender_name = _sender_name
-        self._sender_object = _sender_object
+        self._sender_name = sender_name
+        self._sender_object = sender_object
 
-    def set_sender_name(self, name: str):
-        """Update original sender name"""
-        self._sender_name = name
-
+    @property
     def sender_name(self):
-        return str(self._sender_name)
+        return self._sender_name
 
-    def set_sender_object(self, object: QObject):
-        """Update original sender QObject"""
-        self._sender_object = object
+    @sender_name.setter
+    def sender_name(self, name: str):
+        if self.sender_name == name:
+            return
+        self.sender_name = name
 
+    @property
     def sender_object(self):
         return self._sender_object
+
+    @sender_object.setter
+    def sender_object(self, object: QObject):
+        if self.sender_object == object:
+            return
+        self.sender_object = object
 
 
 class CustomNetworkManager(QObject):
@@ -217,7 +214,7 @@ class CustomNetworkManager(QObject):
         
         in main thread:
         ``def GlobalClientLoader(sender,byte_array):`` \n
-            ``sender.sender_name() == "some_name":``
+            ``sender.sender_name == "some_name":``
                ``do_stuff(sender,byte_array)``
     '''
     downloaded = pyqtSignal(QObject, QByteArray)
@@ -313,14 +310,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # workaround for graphics effect limitation
         self.shadow_effects = {}
         self.shadow_effects_counter = 0
-        self.item_widget_to_repaint = None
 
         #* QSettings
         self.config_is_set = 0
         self.save_to_runtimedir = False
-
-        #* Taskbar notification
-        self.message_is_being_shown = False
 
         #* Sync status bar label
         self.signal = CustomSignals()
@@ -328,32 +321,51 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # self.signal.sig_sync_icon.emit("Loading YouTube data...", True)
 
         self.icons = {
-            "playback_play": str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png')),
-            "playback_pause": str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_pause.png')),
-            "playback_ff": str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_ff.png')),
-            "playback_rew": str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_rew.png')),
-            "save": str(Path.joinpath(BASEDIR, 'data', 'images', 'save.png')),
-            "open": str(Path.joinpath(BASEDIR, 'data', 'images', 'open.png')),
-            "about": str(Path.joinpath(BASEDIR, 'data', 'images', 'about.png')),
-            "settings": str(Path.joinpath(BASEDIR, 'data', 'images', 'settings.png')),
-            "exit": str(Path.joinpath(BASEDIR, 'data', 'images', 'exit.png')),
-            "github": str(Path.joinpath(BASEDIR, 'data', 'images', 'github.png')),
-            "main-icon": str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))
+            "playback_play":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png')),
+            "playback_pause":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_pause.png')),
+            "playback_ff":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_ff.png')),
+            "playback_rew":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_rew.png')),
+            "playback_play_blue":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'blue', 'playback_play.png')),
+            "playback_pause_blue":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'blue', 'playback_pause.png')),
+            "playback_ff_blue":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'blue', 'playback_ff.png')),
+            "playback_rew_blue":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'blue', 'playback_rew.png')),
+            "save":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'save.png')),
+            "open":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'open.png')),
+            "about":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'about.png')),
+            "settings":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'settings.png')),
+            "exit":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'exit.png')),
+            "github":
+            str(Path.joinpath(BASEDIR, 'data', 'images', 'github.png')),
+            "main-icon":
+            str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))
         }
 
         self.actionPLAY.setFlat(True)
-        play_icon = QIcon(self.icons["playback_play"])
-        pause_icon = QPixmap(self.icons["playback_pause"])
+        play_icon = QIcon(self.icons["playback_play_blue"])
+        pause_icon = QPixmap(self.icons["playback_pause_blue"])
         # replace with pause icon on button click
         play_icon.addPixmap(pause_icon, QtGui.QIcon.Active, QtGui.QIcon.On)
         self.actionPLAY.setIcon(play_icon)
         self.actionPLAY.setIconSize(QtCore.QSize(48, 48))
         self.actionFF.setFlat(True)
-        self.actionFF.setIcon(QIcon(self.icons["playback_ff"]))
+        self.actionFF.setIcon(QIcon(self.icons["playback_ff_blue"]))
 
         self.actionFF.setIconSize(QtCore.QSize(32, 32))
         self.actionREW.setFlat(True)
-        self.actionREW.setIcon(QIcon(self.icons["playback_rew"]))
+        self.actionREW.setIcon(QIcon(self.icons["playback_rew_blue"]))
         self.actionREW.setIconSize(QtCore.QSize(32, 32))
 
         self.applyShadowEffect(
@@ -397,17 +409,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # self.horizontalHeader.sectionClicked.connect(self.on_view_horizontalHeader_sectionClicked)
         self.listWidgetVideos.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        #TODO change background highlight color
-        self.listWidgetVideos.itemClicked.connect(lambda item: self.qlist_focus_color(item))
+        self.listWidgetVideos.itemClicked.connect(self.on_list_item_click)  # item passed
 
         self.listWidgetVideos.customContextMenuRequested.connect(
-            lambda pos: self.on_customContextMenuRequested_list(pos)
-        )
+            self.on_list_item_right_click
+        )  # position passed
 
+        #* Tray icon
+        self.message_is_being_shown = False
         self.createTrayIcon()
         self.trayIcon.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))))
         self.trayIcon.messageClicked.connect(self.notification_handler)
 
+        #* Youtube data handling
         json_var = get_yt_source_text(from_local_dir=True)
         my_videos = get_my_videos(json_var)
 
@@ -457,33 +471,34 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         qtw.QAction("Quit", self).triggered.connect(self.closeEvent)
 
-    def qlist_focus_color(self, item: QListWidgetItem):
+    def on_list_item_click(self, item: QListWidgetItem):
         """Called when a QListWidget item is clicked"""
+        self.list_requires_painter = True
         widget = item.listWidget().itemWidget(item)
         # return rest of list items to original state
         for i in range(self.listWidgetVideos.count()):
             item_i = self.listWidgetVideos.item(i)
+            widget_i = self.listWidgetVideos.itemWidget(item_i)
             item_i.setBackground(QColor(237, 237, 237))
-            textUpQLabel = self.listWidgetVideos.itemWidget(item_i).textUpQLabel
+            textUpQLabel = widget_i.textUpQLabel
             textUpQLabel.setGraphicsEffect(None)
             textUpQLabel.setStyleSheet('''color: rgb(70,130,180);''')
-            authorQLabel = self.listWidgetVideos.itemWidget(item_i).authorQLabel
+            authorQLabel = widget_i.authorQLabel
             self.applyShadowEffect(authorQLabel)
-            thumbnailQLabel = self.listWidgetVideos.itemWidget(item_i).thumbnailQLabel
+            thumbnailQLabel = widget_i.thumbnailQLabel
             self.applyShadowEffect(thumbnailQLabel)
-            frame = self.listWidgetVideos.itemWidget(item_i).frame
+            frame = widget_i.frame
             self.applyShadowEffect(frame)
+            widget_i.color = QtGui.QColor(235, 235, 235)
 
-        self.applyShadowEffect(widget.authorQLabel, color=QColor(194, 194, 214))
-        self.applyShadowEffect(widget.thumbnailQLabel, color=QColor(194, 194, 214))
-        self.applyShadowEffect(widget.frame, color=QColor(194, 194, 214))
+        shadow_color = QColor(49, 65, 129)
+        self.applyShadowEffect(widget.authorQLabel, color=shadow_color)
+        self.applyShadowEffect(widget.thumbnailQLabel, color=shadow_color)
+        self.applyShadowEffect(widget.frame, color=shadow_color)
         widget.textUpQLabel.setStyleSheet('''
-            color: rgb(250,250,250);
+            color: rgb(20,20,20);
         ''')
-        self.applyShadowEffect(widget.textUpQLabel)
-        self.item_widget_to_repaint = widget
-        # self.listWidgetVideos.update()
-        item.setBackground(QColor(194, 194, 214))
+        widget.color = QtGui.QColor(159, 173, 244)
 
     def singleTimer(self, seconds, fn):
         """Single use timer that connects to ``fn`` after ``seconds``"""
@@ -536,7 +551,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         )
 
     @QtCore.pyqtSlot(QtCore.QPoint)
-    def on_customContextMenuRequested_list(self, pos):
+    def on_list_item_right_click(self, pos):
         menu = qtw.QMenu()
         delete_row = menu.addAction("Remove")
         action = menu.exec_(self.listWidgetVideos.viewport().mapToGlobal(pos))
@@ -672,14 +687,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def GlobalClientLoader(self, sender: Sender, byte_array: QByteArray):
         """Handles requests made from a custom ``QNetworkAccessManager``"""
 
-        if sender.sender_name() == "vid_thumbnail":
+        if sender.sender_name == "vid_thumbnail":
             # thumbnail image
             vid_thumbnail = QImage()
             vid_thumbnail.loadFromData(byte_array)
-            sender.sender_object().setIcon(vid_thumbnail)
+            sender.sender_object.setIcon(vid_thumbnail)
 
-        elif sender.sender_name() == "author_thumbnail":
-            sender.sender_object().authorQLabel.set_round_label(byte_array)
+        elif sender.sender_name == "author_thumbnail":
+            sender.sender_object.authorQLabel.set_round_label(byte_array)
 
     #######################################################
     ##### EVENTS
@@ -953,30 +968,47 @@ class Spoiler(QWidget):
 class QCustomFrame(QFrame):
     def __init__(self, parent=None, video: Video = "", ref_parent=None):
         super(QFrame, self).__init__(parent)
+        self.border_radius = 6
+        self.setStyleSheet(
+            "color: rgb(237, 237, 237);"
+            "background-color: rgb(237, 237, 237);"
+            "text-align: center;"
+            # "border-style: solid;"
+            # "border-width: 0px 0px 0px 2px;"
+            "border-color: white white white rgb(67, 142, 200);"
+            f"border-radius: {self.border_radius}px {self.border_radius}px {self.border_radius}px {self.border_radius}px;"
+            "padding: 0px;"
+        )
+        self.setFixedWidth(200)
 
-    # #TODO subclass QFrame and reimplement for it as well. Replace frame class.
-    # def paintEvent(self, event):
-    #     # if not self.frame: return
-    #     # QtWidgets.QFrame.paintEvent(self, event)
-    #     target = self
-    #     painter = QPainter(self)
-    #     painter.setRenderHint(QPainter.Antialiasing, True)
-    #     painter.setRenderHint(QPainter.HighQualityAntialiasing, True)
-    #     painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-
-    #     rect = QRectF(target.rect())
-
-    #     painter_path = QPainterPath()
-    #     painter_path.addRoundedRect(rect, 10, 10)
-    #     painter.fillPath(painter_path, QtGui.QBrush(QColor(224, 224, 224)))
-    #     painter.setPen(QtCore.Qt.NoPen)  # remove border when clipping
-    #     painter.drawPath(painter_path)
-    #     painter.setClipPath(painter_path)
-    #     painter.end()
+    def paintEvent(self, event):
+        #* draw decorative line between border radius centers
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        painter.setRenderHint(QtGui.QPainter.HighQualityAntialiasing, True)
+        painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
+        brush_width = 3
+        width_offset = 4
+        height_offset = self.border_radius
+        pen = QtGui.QPen(QColor(67, 142, 200), brush_width)
+        pen.setCapStyle(QtCore.Qt.RoundCap)
+        painter.setPen(pen)
+        painter.drawLine(
+            width_offset + brush_width / 2,
+            height_offset,
+            width_offset + brush_width / 2,
+            self.height() - height_offset,
+        )
 
 
 class QCustomQWidget(QWidget):
-    def __init__(self, parent=None, video: Video = "", ref_parent=None):
+    def __init__(
+        self,
+        parent=None,
+        video: Video = "",
+        ref_parent=None,
+        base_color=QtGui.QColor(235, 235, 235)
+    ):
         super(QCustomQWidget, self).__init__(parent)
         self.textQVBoxLayout = QVBoxLayout()
         self.ref_parent = ref_parent
@@ -989,27 +1021,11 @@ class QCustomQWidget(QWidget):
         base_size = 40
         border_width = 0
         # Overlap filled border-label with image
-        urlpath = video.author_thumbnail
         self.authorQLabel = RoundLabelImage(
             size=base_size, border_width=border_width, border_color=QtGui.QColor(20, 60, 186)
         )
 
-        #* FRAME
         self.frame = QCustomFrame()
-        self.frame.setStyleSheet(
-            "color: rgb(237, 237, 237);"
-            "background-color: rgb(237, 237, 237);"
-            "text-align: center;"
-            "border-style: solid;"
-            "border-width: 0px 0px 0px 2px;"
-            "border-color: white white white rgb(67, 142, 200);"
-            # "border-radius: 7px 7px 7px 7px;"
-            "padding: 0px;"
-        )
-        self.frame.setWindowOpacity(0.4)
-        self.frame.setFixedWidth(200)
-
-        # self.frame.show()
 
         self.textQVBoxLayout.addWidget(self.textUpQLabel)
         self.textQVBoxLayout.addWidget(self.authorQLabel)
@@ -1032,44 +1048,33 @@ class QCustomQWidget(QWidget):
         self.applyShadowEffect(self.frame)
         self.applyShadowEffect(self.thumbnailQLabel)
 
-    #TODO subclass QFrame and reimplement for it as well. Replace frame class.
+        self._color = base_color
+
+    @property
+    def color(self):
+        return self._color
+
+    @color.setter
+    def color(self, color):
+        if self.color == color:
+            return
+        self._color = color
+        self.update()
+
     def paintEvent(self, event):
-        # if not self.frame: return
-        # QtWidgets.QFrame.paintEvent(self, event)
-        target = self
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.setRenderHint(QPainter.HighQualityAntialiasing, True)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-
-        rect = QRectF(target.rect())
-
-        painter_path = QPainterPath()
-        painter_path.addRoundedRect(rect, 10, 10)
-        painter.fillPath(painter_path, QtGui.QBrush(QColor(224, 224, 224)))
-        painter.setPen(QtCore.Qt.NoPen)  # remove border when clipping
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        painter.setRenderHint(QtGui.QPainter.HighQualityAntialiasing, True)
+        painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
+        rect = QtCore.QRectF(self.rect())
+        painter_path = QtGui.QPainterPath()
+        border_radius = 20
+        painter_path.addRoundedRect(rect, border_radius, border_radius)
+        painter.setOpacity(0.4)  # before filling
+        painter.fillPath(painter_path, QtGui.QBrush(self.color))
+        painter.setPen(QtCore.Qt.NoPen)
         painter.drawPath(painter_path)
         painter.setClipPath(painter_path)
-        painter.end()  # this painter has to be stopped first
-
-        if self.ref_parent.item_widget_to_repaint is not None:
-            self.onClickRepaint(self.ref_parent.item_widget_to_repaint, painter)
-
-    def onClickRepaint(self, target, painter):
-        painter.begin(target)  # begin painter for the clicked item only
-        painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.setRenderHint(QPainter.HighQualityAntialiasing, True)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-
-        rect = QRectF(target.rect())
-
-        painter_path = QPainterPath()
-        painter_path.addRoundedRect(rect, 10, 10)
-        painter.fillPath(painter_path, QtGui.QBrush(QColor(129, 173, 244)))
-        painter.setPen(QtCore.Qt.NoPen)  # remove border when clipping
-        painter.drawPath(painter_path)
-        painter.setClipPath(painter_path)
-        painter.end()
 
     def applyShadowEffect(self, widget: QWidget):
         """Same widget graphic effect instance can't be used more than once
@@ -1194,5 +1199,6 @@ app.aboutToQuit.connect(w.shutdown)
 timer = QtCore.QTimer()
 timer.timeout.connect(lambda: None)
 timer.start(100)
+# apply_stylesheet(app, theme='dark_teal.xml')
 
 sys.exit(app.exec_())
