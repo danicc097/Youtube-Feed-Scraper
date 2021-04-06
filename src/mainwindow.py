@@ -41,7 +41,7 @@ from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkReques
 from youtube_dl import YoutubeDL
 
 from .designer.YoutubeScraper import Ui_MainWindow
-from .resources import get_path
+from .resources import get_path, MyIcons
 from .save_restore import grab_GC, guirestore, guisave
 # from qt_material import apply_stylesheet
 
@@ -125,16 +125,12 @@ class WorkerSignals(QtCore.QObject):
 
 class Worker(QtCore.QRunnable):
     '''
-    Worker thread
-
-    Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
-
+    Inherits from QRunnable to handle worker thread setup, signals and wrap-up.
     ``param callback`` The function callback to run on this worker thread. Supplied args and
                      kwargs will be passed through to the runner.
     ``type callback`` function
     ``param args`` Arguments to pass to the callback function
     ``param kwargs`` Keywords to pass to the callback function
-
     '''
     def __init__(self, fn, *args, **kwargs):
         super(Worker, self).__init__()
@@ -150,10 +146,7 @@ class Worker(QtCore.QRunnable):
 
     @QtCore.pyqtSlot()
     def run(self):
-        '''
-        Initialise the runner function with passed args, kwargs.
-        '''
-
+        '''Initialise the runner function with passed args, kwargs.'''
         # Retrieve args/kwargs here; and fire processing using them
         try:
             result = self.fn(*self.args, **self.kwargs)
@@ -166,17 +159,13 @@ class Worker(QtCore.QRunnable):
         finally:
             self.signals.finished.emit()  # Done
 
-    def pause(self):
-        self.is_paused = True
-
-    def resume(self):
-        self.is_paused = False
-
 
 class Sender(QObject):
-    """To be used as QNetworkReply and QNetworkRequest ``originatingObject``."""
+    """
+    To be used as QNetworkReply and QNetworkRequest ``originatingObject``.
+    """
     def __init__(self, sender_name, sender_object):
-        super().__init__()
+        super(Sender, self).__init__()
         self._sender_name = sender_name
         self._sender_object = sender_object
 
@@ -317,55 +306,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         #* Sync status bar label
         self.signal = CustomSignals()
-        self.signal.sig_sync_icon.connect(self.add_sync_icon)
-        # self.signal.sig_sync_icon.emit("Loading YouTube data...", True)
+        self.signal.sync_icon.connect(self.add_sync_icon)
 
-        self.icons = {
-            "playback_play":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png')),
-            "playback_pause":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_pause.png')),
-            "playback_ff":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_ff.png')),
-            "playback_rew":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_rew.png')),
-            "playback_play_blue":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'blue', 'playback_play.png')),
-            "playback_pause_blue":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'blue', 'playback_pause.png')),
-            "playback_ff_blue":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'blue', 'playback_ff.png')),
-            "playback_rew_blue":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'blue', 'playback_rew.png')),
-            "save":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'save.png')),
-            "open":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'open.png')),
-            "about":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'about.png')),
-            "settings":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'settings.png')),
-            "exit":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'exit.png')),
-            "github":
-            str(Path.joinpath(BASEDIR, 'data', 'images', 'github.png')),
-            "main-icon":
-            str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))
-        }
+        self.signal.add_listitem.connect(self.fill_list_widget)
+
+        #*
+        self.icons = MyIcons(BASEDIR)
 
         self.actionPLAY.setFlat(True)
-        play_icon = QIcon(self.icons["playback_play_blue"])
-        pause_icon = QPixmap(self.icons["playback_pause_blue"])
+        play_icon = QIcon(self.icons.playback_play_blue)
+        pause_icon = QPixmap(self.icons.playback_pause_blue)
         # replace with pause icon on button click
         play_icon.addPixmap(pause_icon, QtGui.QIcon.Active, QtGui.QIcon.On)
         self.actionPLAY.setIcon(play_icon)
         self.actionPLAY.setIconSize(QtCore.QSize(48, 48))
         self.actionFF.setFlat(True)
-        self.actionFF.setIcon(QIcon(self.icons["playback_ff_blue"]))
+        self.actionFF.setIcon(QIcon(self.icons.playback_ff_blue))
 
         self.actionFF.setIconSize(QtCore.QSize(32, 32))
         self.actionREW.setFlat(True)
-        self.actionREW.setIcon(QIcon(self.icons["playback_rew_blue"]))
+        self.actionREW.setIcon(QIcon(self.icons.playback_rew_blue))
         self.actionREW.setIconSize(QtCore.QSize(32, 32))
 
         self.applyShadowEffect(
@@ -378,12 +338,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.actionPLAY.clicked.connect(self.onPlay)
 
-        self.actionSave.setIcon(QIcon(self.icons["save"]))
-        self.actionOpen.setIcon(QIcon(self.icons["open"]))
-        self.actionAbout.setIcon(QIcon(self.icons["about"]))
-        self.actionEdit.setIcon(QIcon(self.icons["settings"]))
-        self.actionExit.setIcon(QIcon(self.icons["exit"]))
-        self.actionGitHub_Homepage.setIcon(QIcon(self.icons["github"]))
+        self.actionSave.setIcon(QIcon(self.icons.save))
+        self.actionOpen.setIcon(QIcon(self.icons.open))
+        self.actionAbout.setIcon(QIcon(self.icons.about))
+        self.actionEdit.setIcon(QIcon(self.icons.settings))
+        self.actionExit.setIcon(QIcon(self.icons.exit))
+        self.actionGitHub_Homepage.setIcon(QIcon(self.icons.github))
 
         # Thread runner
         self.runner = None
@@ -409,7 +369,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # self.horizontalHeader.sectionClicked.connect(self.on_view_horizontalHeader_sectionClicked)
         self.listWidgetVideos.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.listWidgetVideos.itemClicked.connect(self.on_list_item_click)  # item passed
+        self.listWidgetVideos.itemClicked.connect(self.on_list_item_left_click)  # item passed
 
         self.listWidgetVideos.customContextMenuRequested.connect(
             self.on_list_item_right_click
@@ -421,11 +381,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.trayIcon.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))))
         self.trayIcon.messageClicked.connect(self.notification_handler)
 
-        #* Youtube data handling
-        json_var = get_yt_source_text(from_local_dir=True)
-        my_videos = get_my_videos(json_var)
-
-        # #### Quick view
+        # #### Quick view video attributes
         # i = 0
         # for id, video in my_videos.items():
         #     if i >= 3:
@@ -435,43 +391,93 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         #     i += 1
         # #### END Quick view
 
-        #* Fill QListWidget with custom widgets
-        for video_id, video in my_videos.items():
-            ListWidget_item_widget = QCustomQWidget(video=video, ref_parent=self)
-            author_thumbnail_sender = Sender("author_thumbnail", ListWidget_item_widget)
-            # it's not garbage. Else the reply will return a destroyed Sender
-            self.sender_list.append(author_thumbnail_sender)
-            self.network_manager.startDownload(
-                url=video.author_thumbnail, sender=author_thumbnail_sender
-            )
-
-            #TODO: use rounded card styles with QFrames
-            """
-            Create a widget with Qt::Window | Qt::FramelessWindowHint and Qt::WA_TranslucentBackground flag
-            Create a QFrame inside of a widget
-            Set a stylesheel to QFrame, for example:
-            """
-            ListWidget_item_widget.setTextUp(video.title)
-            vid_thumbnail_sender = Sender("vid_thumbnail", ListWidget_item_widget)
-            # it's not garbage. Else the reply will return a destroyed Sender
-            self.sender_list.append(vid_thumbnail_sender)
-            url = video.thumbnail
-            self.network_manager.startDownload(url, vid_thumbnail_sender)
-
-            # no need to subclass QListWidgetItem, just the widget set on it
-            ListWidget_item = QListWidgetItem(self.listWidgetVideos)
-            ListWidget_item.setSizeHint(ListWidget_item_widget.sizeHint())
-            self.listWidgetVideos.addItem(ListWidget_item)
-            self.listWidgetVideos.setItemWidget(ListWidget_item, ListWidget_item_widget)
+        populate_worker = Worker(self.populate_video_list)
+        self.actionGetFeed.triggered.connect(lambda: self.threadpool.start(populate_worker))
 
         #* Expandable section below
         spoiler = Spoiler(title="Settings", ref_parent=self)
         self.applyEffectOnHover(spoiler)
         self.gridLayout.addWidget(spoiler)
 
+        self.resize(1300, 600)
+
         qtw.QAction("Quit", self).triggered.connect(self.closeEvent)
 
-    def on_list_item_click(self, item: QListWidgetItem):
+    def populate_video_list(self):
+        """Trigger scraping workflow"""
+        self.signal.sync_icon.emit("Loading YouTube data", False)
+        json_var = get_yt_source_text(from_local_dir=True)
+        self.my_videos = self.get_my_videos(json_var)
+        self.signal.sync_icon.emit("", True)
+
+    def get_my_videos(self, json_var):
+        """Extract video metadata from feed to a dictionary accessed by video ID
+        \nParameters:\n   
+        ``json_var`` : ytInitialData variable, containing rendered feed videos data"""
+
+        my_videos = {}
+
+        # match all rendered video grids
+        jsonpath_expr = parse('*..gridRenderer..gridVideoRenderer')
+        videos_json = [match.value for match in jsonpath_expr.find(json_var)]
+
+        parse_strings = {
+            'id': 'videoId',
+            'title': 'title.runs[*].text',
+            'author': 'shortBylineText.runs[*].text',
+            'author_thumbnail': 'channelThumbnail.thumbnails[*].url',
+            'thumbnail': 'thumbnail.thumbnails[*].url',
+            'time': 'publishedTimeText.simpleText',
+        }
+        videos_parsed = 0
+        parsing_limit = 90
+        bypass_limit = False  # toggle False for fast dev with limit
+        for item in videos_json:
+            if videos_parsed >= parsing_limit and not bypass_limit:
+                break
+            for video_attr, parse_str in parse_strings.items():
+                json_expr = parse(parse_str)  # see jsonpath_ng
+                matches = [match.value for match in json_expr.find(item)]
+                if not matches:
+                    match_attr = ""
+                else:
+                    match_attr = matches[0]
+                    if video_attr == "id":
+                        video_id = match_attr
+                        my_videos[video_id] = Video(video_id)
+
+                    setattr(my_videos[video_id], video_attr, match_attr)
+            videos_parsed += 1
+            self.signal.add_listitem.emit(my_videos[video_id])
+            QApplication.processEvents()
+
+        return my_videos
+
+    def fill_list_widget(self, video):
+        ListWidget_item_widget = QCustomQWidget(video=video, ref_parent=self)
+
+        author_thumbnail_sender = Sender("author_thumbnail", ListWidget_item_widget)
+        # it's not garbage. Else the reply will return a destroyed Sender
+        self.sender_list.append(author_thumbnail_sender)
+        self.network_manager.startDownload(
+            url=video.author_thumbnail, sender=author_thumbnail_sender
+        )
+
+        ListWidget_item_widget.setTextUp(video.title)
+
+        vid_thumbnail_sender = Sender("vid_thumbnail", ListWidget_item_widget)
+        # it's not garbage. Else the reply will return a destroyed Sender
+        self.sender_list.append(vid_thumbnail_sender)
+        url = video.thumbnail
+        self.network_manager.startDownload(url, vid_thumbnail_sender)
+
+        # no need to subclass QListWidgetItem, just the widget set on it
+        ListWidget_item = QListWidgetItem(self.listWidgetVideos)
+        ListWidget_item.setSizeHint(ListWidget_item_widget.sizeHint())
+        self.listWidgetVideos.addItem(ListWidget_item)
+        self.listWidgetVideos.setItemWidget(ListWidget_item, ListWidget_item_widget)
+
+    def on_list_item_left_click(self, item: QListWidgetItem):
         """Called when a QListWidget item is clicked"""
         self.list_requires_painter = True
         widget = item.listWidget().itemWidget(item)
@@ -495,10 +501,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.applyShadowEffect(widget.authorQLabel, color=shadow_color)
         self.applyShadowEffect(widget.thumbnailQLabel, color=shadow_color)
         self.applyShadowEffect(widget.frame, color=shadow_color)
+        self.applyShadowEffect(widget.textUpQLabel, color=shadow_color)
         widget.textUpQLabel.setStyleSheet('''
-            color: rgb(20,20,20);
+            color: rgb(250,250,250);
         ''')
-        widget.color = QtGui.QColor(159, 173, 244)
+        widget.color = QtGui.QColor(61, 125, 194)
 
     def singleTimer(self, seconds, fn):
         """Single use timer that connects to ``fn`` after ``seconds``"""
@@ -608,8 +615,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         #* Invalid file or none
         if self.filename == "":
             qtw.QMessageBox.critical(
-                self, "Operation aborted", "Empty filename or none selected. \n Please try again.",
-                qtw.QMessageBox.Ok
+                self,
+                "Operation aborted",
+                "Empty filename or none selected. \n Please try again.",
+                qtw.QMessageBox.Ok,
             )
             self.statusBar().showMessage("Select a valid configuration file")
         #* Valid file
@@ -619,33 +628,30 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 try:
                     self.my_settings = QtCore.QSettings(self.filename, QtCore.QSettings.IniFormat)
                     guirestore(self, self.my_settings)
-                    self.statusBar().showMessage(
-                        "Changes now being saved to: {}".format(self.filename)
-                    )
+                    self.statusBar().showMessage(f"Changes now being saved to: {self.filename}")
                     self.setWindowTitle(os.path.basename(self.filename))
 
                 except Exception as e:
                     qtw.QMessageBox.critical(self, 'Error', f"Could not open settings: {e}")
             else:
                 qtw.QMessageBox.critical(
-                    self, "Invalid file type", "Please select a .ini file.", qtw.QMessageBox.Ok
+                    self,
+                    "Invalid file type",
+                    "Please select a .ini file.",
+                    qtw.QMessageBox.Ok,
                 )
 
     @QtCore.pyqtSlot(str, bool)
-    def add_sync_icon(self, label_text: str, create_icon: bool):
-        """Status bar sync label."""
-        if not create_icon:
+    def add_sync_icon(self, label_text: str, remove_icon: bool):
+        """Status bar sync label showing ``label_text``."""
+        if remove_icon:
             self.statusBar().removeWidget(self.label_sync)
             self.statusBar().removeWidget(self.title)
             self.statusBar().setGeometry(self.statusbar_geo)
             return
 
         self.statusbar_geo = self.statusBar().geometry()
-        self.statusBar().setStyleSheet(
-            """border-top-width : 3px;
-                                        border-color: rgb(0, 0, 0)
-                                        """
-        )
+        self.statusBar().setStyleSheet("border-top-width : 3px;" "border-color: rgb(0, 0, 0);")
         self.img_sync = QPixmap(str(Path.joinpath(BASEDIR, 'data', 'synchronize-icon.png')))
         self.img_sync = self.img_sync.scaled(
             25, 25, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation
@@ -653,9 +659,25 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.label_sync = QLabel(None)
         self.title = QLabel(label_text)
         self.label_sync.setFixedSize(25, 25)
-        self.title.setFixedSize(120, 25)
+        # self.title.setFixedSize(150, 25)
         self.title.setMinimumHeight(self.label_sync.height())
         self.label_sync.setPixmap(self.img_sync)
+
+        def ellipsis_in_label(label):
+            if self.label_counter < self.label_limit:
+                text = label.text() + "."
+                self.label_counter += 1
+            else:
+                text = label.text()[:-self.label_limit]
+                self.label_counter = 0
+            label.setText(text)
+
+        self.label_counter = 0
+        self.label_limit = 3
+        self.label_timer = QtCore.QTimer()
+        self.label_timer.timeout.connect(lambda: ellipsis_in_label(self.title))
+        self.label_timer.start(1 * 1000)
+
         self.statusBar().addPermanentWidget(self.label_sync)
         self.statusBar().addPermanentWidget(self.title)
 
@@ -704,12 +726,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         #* apply shadow effect when hovered over
         if isinstance(object, QWidget) and object in self.widgets_with_hover:
             if event.type() == QtCore.QEvent.Enter:
-                print("Mouse is over the widget ")
                 self.applyShadowEffect(object, color=QColor(16, 47, 151), blur_radius=20, offset=0)
 
                 return True
             elif event.type() == QtCore.QEvent.Leave:
-                print("Mouse is not over the widget ")
                 object.setGraphicsEffect(None)
         return False
 
@@ -738,6 +758,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
             event.ignore()
 
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Right:
+            self.horizontalSlider.setValue(self.horizontalSlider.value() + 10)
+        elif event.key() == QtCore.Qt.Key_Left:
+            self.horizontalSlider.setValue(self.horizontalSlider.value() - 10)
+        elif event.key() == QtCore.Qt.Key_Space:
+            pass
+        # TODO play
+        if event.key() == QtCore.Qt.Key_Up:
+            pass
+        # TODO list widget select previous
+        elif event.key() == QtCore.Qt.Key_Down:
+            pass
+        # TODO list widget select next
+        else:
+            QWidget.keyPressEvent(self, event)
+
 
 #######################################################
 #######################################################
@@ -757,47 +794,6 @@ class Video():
         self.author = str(author)
         self.thumbnail = str(thumbnail)
         self.author_thumbnail = str(author_thumbnail)
-
-
-def get_my_videos(json_var):
-    """Extract video metadata from feed to a dictionary accessed by video ID
-    \nParameters:\n   
-    ``json_var`` : ytInitialData variable, containing rendered feed videos data"""
-
-    my_videos = {}
-
-    # match all rendered video grids
-    jsonpath_expr = parse('*..gridRenderer..gridVideoRenderer')
-    videos_json = [match.value for match in jsonpath_expr.find(json_var)]
-
-    parse_strings = {
-        'id': 'videoId',
-        'title': 'title.runs[*].text',
-        'author': 'shortBylineText.runs[*].text',
-        'author_thumbnail': 'channelThumbnail.thumbnails[*].url',
-        'thumbnail': 'thumbnail.thumbnails[*].url',
-        'time': 'publishedTimeText.simpleText',
-    }
-    videos_parsed = 0
-    parsing_limit = 5
-    bypass_limit = False  # toggle False for fast dev with limit
-    for item in videos_json:
-        if videos_parsed >= parsing_limit and not bypass_limit:
-            break
-        for video_attr, parse_str in parse_strings.items():
-            json_expr = parse(parse_str)  # see jsonpath_ng
-            matches = [match.value for match in json_expr.find(item)]
-            if not matches:
-                match_attr = ""
-            else:
-                match_attr = matches[0]
-                if video_attr == "id":
-                    video_id = match_attr
-                    my_videos[video_id] = Video(video_id)
-
-                setattr(my_videos[video_id], video_attr, match_attr)
-        videos_parsed += 1
-    return my_videos
 
 
 def get_yt_source_text(from_local_dir=False, save_to_local_dir=False, last_video: Video = None):
@@ -1010,39 +1006,38 @@ class QCustomQWidget(QWidget):
         base_color=QtGui.QColor(235, 235, 235)
     ):
         super(QCustomQWidget, self).__init__(parent)
-        self.textQVBoxLayout = QVBoxLayout()
         self.ref_parent = ref_parent
         self.shadow_effects = {}
         self.shadow_effects_counter = 0
+
         self.textUpQLabel = QLabel()
         font = QFont()
         font.setPointSize(12)
         self.textUpQLabel.setFont(font)
+
         base_size = 40
         border_width = 0
-        # Overlap filled border-label with image
         self.authorQLabel = RoundLabelImage(
             size=base_size, border_width=border_width, border_color=QtGui.QColor(20, 60, 186)
         )
 
         self.frame = QCustomFrame()
 
+        self.textQVBoxLayout = QVBoxLayout()
         self.textQVBoxLayout.addWidget(self.textUpQLabel)
         self.textQVBoxLayout.addWidget(self.authorQLabel)
+
         self.allQGrid = QGridLayout()
+        # icon will be set later, if a reply is received
         self.thumbnailQLabel = QLabel()
-        self.allQGrid.addWidget(self.thumbnailQLabel, 0, 0, 2, 1, QtCore.Qt.AlignLeft)
+        self.thumbnailQLabel.setFixedWidth(140)
+        self.allQGrid.addWidget(self.thumbnailQLabel, 0, 0, 2, 1)
         self.allQGrid.addLayout(self.textQVBoxLayout, 0, 1, 2, 1, QtCore.Qt.AlignLeft)
         self.allQGrid.addWidget(self.frame, 1, 2, 1, 1, QtCore.Qt.AlignRight)
         self.setLayout(self.allQGrid)
-
-        # setStyleSheet
         self.textUpQLabel.setStyleSheet('''
             color: rgb(70,130,180);
         ''')
-        # self.authorQLabel.setStyleSheet('''
-        #     color: rgb(255, 0, 0);
-        # ''')
 
         self.applyShadowEffect(self.authorQLabel)
         self.applyShadowEffect(self.frame)
@@ -1089,20 +1084,15 @@ class QCustomQWidget(QWidget):
     def setTextUp(self, text):
         self.textUpQLabel.setText(text)
         self.textUpQLabel.setSizePolicy(
-            QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+            QSizePolicy(QSizePolicy.Minimum, QSizePolicy.MinimumExpanding)
         )
         # self.textUpQLabel.setGraphicsEffect(self.effect)
-
-    def setTextDown(self, text):
-        """"""
-
-        # self.authorQLabel.setText(text)
-        # self.authorQLabel.setGraphicsEffect(self.effect)
 
     def setIcon(self, imagePath):
         img = QPixmap(imagePath)
         # important to use a SmoothTransformation
-        img = img.scaledToWidth(140, QtCore.Qt.SmoothTransformation)
+        thumbnail_width = self.thumbnailQLabel.width()
+        img = img.scaledToWidth(thumbnail_width, QtCore.Qt.SmoothTransformation)
         self.thumbnailQLabel.setPixmap(img)
         self.thumbnailQLabel.setContentsMargins(0, 0, 20, 0)
         self.thumbnailQLabel.setSizePolicy(
@@ -1171,8 +1161,9 @@ class RoundLabelImage(QLabel):
 class CustomSignals(QtCore.QObject):
     ''' Why a whole new class? See here: 
     https://stackoverflow.com/a/25930966/2441026 '''
-    sig_no_args = QtCore.pyqtSignal()
-    sig_sync_icon = QtCore.pyqtSignal(str, bool)
+    no_args = QtCore.pyqtSignal()
+    sync_icon = QtCore.pyqtSignal(str, bool)
+    add_listitem = QtCore.pyqtSignal(Video)
 
 
 #########################################################################
