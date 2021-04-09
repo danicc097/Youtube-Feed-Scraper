@@ -1,23 +1,22 @@
-from PyQt5.QtWidgets import QAction, QComboBox, QListWidget, QWidget
-from PyQt5.QtWidgets import QLineEdit
-from PyQt5.QtWidgets import QCheckBox
-from PyQt5.QtWidgets import QRadioButton
-from PyQt5.QtWidgets import QSpinBox
-from PyQt5.QtWidgets import QDoubleSpinBox
-from PyQt5.QtWidgets import QGroupBox
 import inspect
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets
+
+from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtWidgets import (
+    QAction, QCheckBox, QComboBox, QDoubleSpinBox, QGroupBox, QLineEdit, QListWidget, QRadioButton, QSpinBox, QWidget
+)
+
 # ? Has to be manually defined for each widget, unfortunately
 
 
-def guisave(self, settings, objects_to_exclude=None):
-    """Saves GUI values to a QSettings file (.ini format)"""
+def guisave(self, settings: QtCore.QSettings, objects_to_exclude=None):
+    """
+    Saves GUI values to a QSettings file (.ini format). \n
+    ``objects_to_exclude`` : Exclude objects to save by its objectName property. 
+    """
     try:
         childrens = self.findChildren(QtWidgets.QWidget)
         for children in childrens:
-            if isinstance(children, QtWidgets.QListWidget
-                          ) and children.objectName() not in objects_to_exclude:
+            if isinstance(children, QtWidgets.QListWidget) and children.objectName() not in objects_to_exclude:
                 settings.beginGroup(children.objectName())
                 items = QtCore.QByteArray()
                 stream = QtCore.QDataStream(items, QtCore.QIODevice.WriteOnly)
@@ -80,7 +79,7 @@ def guisave(self, settings, objects_to_exclude=None):
     settings.sync()
 
 
-def guirestore(self, settings):
+def guirestore(self, settings: QtCore.QSettings):
     """Restores GUI values from a QSettings file (.ini format)"""
     try:
         childrens = self.findChildren(QtWidgets.QWidget)
@@ -89,9 +88,7 @@ def guirestore(self, settings):
                 settings.beginGroup(children.objectName())
                 items = settings.value("items")
                 selecteditems = settings.value("selecteditems")
-                selectionMode = settings.value(
-                    "selectionMode", type=QtWidgets.QAbstractItemView.SelectionMode
-                )
+                selectionMode = settings.value("selectionMode", type=QtWidgets.QAbstractItemView.SelectionMode)
                 children.setSelectionMode(selectionMode)
                 # In the first reading the initial values must be established
                 if items is None:
@@ -195,7 +192,7 @@ def guirestore(self, settings):
                 pass
 
 
-def grab_GC(window, settings):
+def grab_GC(window, settings: QtCore.QSettings):
     """Creates a global dictionary from the values 
     stored in the given QSettings file (.ini format)"""
     GC = {}
