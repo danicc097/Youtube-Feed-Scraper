@@ -94,30 +94,6 @@ class MyLogger(object):
         print(msg)
 
 
-class CustomYoutubeDL():
-    def __init__(self):
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'logger': MyLogger(),
-            'progress_hooks': [self.my_hook],
-        }
-        with YoutubeDL(ydl_opts) as ydl:
-            ydl.download(["yt_video_url"])
-
-        # TODO QRunnable for each video.
-        # signal containing URL and temp file path
-        # global slot in mainwindow to handle
-
-    def my_hook(self, d):
-        if d['status'] == 'finished':
-            print('Done downloading, now converting ...')
-
-
 class WorkerSignals(QtCore.QObject):
     """
     Defines the signals available from a running worker thread.
@@ -171,9 +147,10 @@ class Worker(QtCore.QRunnable):
 
 class Video():
     """
-    Store video information for ease of use
+    Store video information for ease of use. 
+    Download it in parallel using ``start_download`` in a worker.
     """
-    def __init__(self, id, title="", time="", author="", thumbnail="", author_thumbnail=""):
+    def __init__(self, id, title="", time="", author="", thumbnail="", author_thumbnail="", duration=""):
         self.id = str(id)
         self.url = "https://www.youtube.com/watch?v=" + self.id
         self.title = str(title)
@@ -181,6 +158,27 @@ class Video():
         self.author = str(author)
         self.thumbnail = str(thumbnail)
         self.author_thumbnail = str(author_thumbnail)
+        self.duration = str(duration)
+
+    def start_download(self, download_dir):
+        """``download_dir`` : temp dir or user-defined."""
+        ydl_opts = {
+            'format': 'bestaudio',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '128',
+            }],
+            'logger': MyLogger(),
+            'progress_hooks': [self.progress_hook],
+            'outtmpl': os.path.join(download_dir, f'{self.id}.mp3')
+        }
+        with YoutubeDL(ydl_opts) as ydl:
+            ydl.download([self.url])
+
+    def progress_hook(self, d):
+        if d['status'] == 'finished':
+            print(f'Done downloading {self.title}. Converting...')
 
 
 class CustomSignals(QtCore.QObject):
@@ -189,6 +187,7 @@ class CustomSignals(QtCore.QObject):
     no_args = QtCore.pyqtSignal()
     sync_icon = QtCore.pyqtSignal(str, bool)
     add_listitem = QtCore.pyqtSignal(Video)
+    start_video_download = QtCore.pyqtSignal(Video)
 
 
 class NewWindow(QMainWindow):
@@ -263,10 +262,13 @@ class MainWindow(QMainWindow):
         self.signal = CustomSignals()
         self.signal.sync_icon.connect(self.add_sync_icon)
         self.label_sync = None
-        self.signal.add_listitem.connect(self.fill_list_widget)
 
         #* Icon paths
         self.icons = MyIcons(BASEDIR)
+
+        #* Temporary video downloads folder
+        self.temp_dir = tempfile.mkdtemp()
+        print(self.temp_dir)
 
         ##############?##############?##############?##############?
         ##############?##############? UI definition
@@ -430,6 +432,10 @@ class MainWindow(QMainWindow):
         self.trayIcon.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))))
         self.trayIcon.messageClicked.connect(self.notificationHandler)
 
+        self.signal.add_listitem.connect(self.fill_list_widget)
+        self.signal.start_video_download.connect(self.video_downloader)
+
+        self.actionGetFeed.triggered.connect(lambda: self.startWorker("populate_worker"))
         # #### Quick view video attributes
         # i = 0
         # for id, video in my_videos.items():
@@ -439,8 +445,6 @@ class MainWindow(QMainWindow):
         #     print("---------------------------")
         #     i += 1
         # #### END Quick view
-
-        self.actionGetFeed.triggered.connect(lambda: self.startWorker("populate_worker"))
 
         self.resize(1300, 600)
 
@@ -483,11 +487,19 @@ class MainWindow(QMainWindow):
         }"""
         )
 
-    def startWorker(self, worker: str):
+    def startWorker(self, worker: str, **kwargs):
         """Start a worker by its arbitrary name."""
         if worker == "populate_worker":
             populate_worker = Worker(self.populate_video_list)
             self.threadpool.start(populate_worker)
+        elif worker == "video_download":
+            video = kwargs.pop('video')
+            if isinstance(video, Video):
+                yt_dl_worker = Worker(video.start_download, self.temp_dir)
+                self.threadpool.start(yt_dl_worker)
+
+    def video_downloader(self, video: Video):
+        self.startWorker("video_download", video=video)
 
     def populate_video_list(self):
         """Trigger scraping workflow"""
@@ -558,6 +570,7 @@ class MainWindow(QMainWindow):
         jsonpath_expr = parse('*..gridRenderer..gridVideoRenderer')
         videos_json = [match.value for match in jsonpath_expr.find(json_var)]
 
+        #* add new metadata as required and edit Video class accordingly
         parse_strings = {
             'id': 'videoId',
             'title': 'title.runs[*].text',
@@ -565,6 +578,7 @@ class MainWindow(QMainWindow):
             'author_thumbnail': 'channelThumbnail.thumbnails[*].url',
             'thumbnail': 'thumbnail.thumbnails[*].url',
             'time': 'publishedTimeText.simpleText',
+            'duration': 'thumbnailOverlays[*].thumbnailOverlayTimeStatusRenderer.text.simpleText',
         }
 
         return self.create_video_instances(videos_json, parse_strings)
@@ -593,6 +607,7 @@ class MainWindow(QMainWindow):
             videos_parsed += 1
             #* send signal with the current video and fill the list
             self.signal.add_listitem.emit(my_videos[video_id])
+            self.signal.start_video_download.emit(my_videos[video_id])
             QApplication.processEvents()  # QRunnable not worth it
         return my_videos
 
@@ -600,6 +615,8 @@ class MainWindow(QMainWindow):
         """Create the item for the list widget, start downloading it's data 
         asynchronously and insert it."""
         item_widget = CustomQWidget(ref_parent=self)
+        item_widget.video = video  # keep track of video in list widget
+        print(item_widget.video.duration)
 
         #* Add own buttons to frame
         # TODO they're linked to ``video`` --> defined here, and not in CustomQWidget
@@ -633,7 +650,6 @@ class MainWindow(QMainWindow):
         self.network_manager.startDownload(url=video.author_thumbnail, sender=author_thumbnail_sender)
 
         vid_thumbnail_sender = Sender("vid_thumbnail", item_widget)
-        # it's not garbage. Else the reply will return a destroyed Sender
         self.sender_list.append(vid_thumbnail_sender)
         self.network_manager.startDownload(url=video.thumbnail, sender=vid_thumbnail_sender)
 
@@ -926,6 +942,7 @@ class MainWindow(QMainWindow):
         close.exec()  # Necessary for property-based API
         if close.clickedButton() == close_accept:
             self.trayIcon.setVisible(False)
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
             event.accept()
         else:
             event.ignore()

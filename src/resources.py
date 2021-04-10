@@ -29,6 +29,11 @@ def get_path(relative_path):
     return base_path / rel_path
 
 
+def get_sec(my_time):
+    """Return seconds from hh:mm:ss format."""
+    h, m, s = my_time.split(':')
+    return int(h) * 3600 + int(m) * 60 + int(s)
+
 class MyIcons(object):
     """Icons to be initialized in QMainWindow"""
     def __init__(self, BASEDIR) -> None:
