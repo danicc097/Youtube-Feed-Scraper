@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
 
 
 def guisave(self, settings: QtCore.QSettings, objects_to_exclude=None):
+    # sourcery no-metrics
     """
     Saves GUI values to a QSettings file (.ini format). \n
     ``objects_to_exclude`` : Exclude objects to save by its objectName property. 
@@ -79,7 +80,7 @@ def guisave(self, settings: QtCore.QSettings, objects_to_exclude=None):
     settings.sync()
 
 
-def guirestore(self, settings: QtCore.QSettings):
+def guirestore(self, settings: QtCore.QSettings):  # sourcery no-metrics
     """Restores GUI values from a QSettings file (.ini format)"""
     try:
         childrens = self.findChildren(QtWidgets.QWidget)
