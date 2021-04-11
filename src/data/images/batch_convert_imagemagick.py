@@ -17,7 +17,7 @@ def command_run(cmd):
 
 
 # folders to create in #HEX, rgb(r,g,b) or string format
-COLORS = ["black", "grey", "white", "#8AB4F8", "#438EC8"]
+COLORS = ["black", "grey", "white", "#8AB4F8", "#438EC8", "#009534", "#8b0000"]
 
 for color in COLORS:
     dest_folder = os.path.join(BASEDIR, color)

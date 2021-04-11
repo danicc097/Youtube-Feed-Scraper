@@ -361,8 +361,6 @@ class AnimatedToggle(QCheckBox):
     ):
         super().__init__(parent)
 
-        # Save our properties on the object via self, so we can access them later
-        # in the paintEvent.
         self._bar_brush = QBrush(bar_color)
         self._bar_checked_brush = QBrush(QColor(checked_color).lighter())
 
@@ -506,10 +504,22 @@ class CustomImageButton(QPushButton):
         self._animation = QtCore.QVariantAnimation(
             self,
             startValue=1.0,
-            endValue=1.1,
-            duration=1000,
+            endValue=1.07,
+            duration=600,
             valueChanged=self.on_valueChanged,
         )
+
+    @property
+    def icon(self):
+        return self._icon
+
+    @icon.setter
+    def icon(self, icon):
+        if self.icon == icon:
+            return
+        self._icon = icon
+        self.setIcon(self._icon)
+        self.update()
 
     def start_animation(self):
         if self._animation.state() != QtCore.QAbstractAnimation.Running:

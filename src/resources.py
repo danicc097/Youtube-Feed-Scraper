@@ -31,7 +31,12 @@ def get_path(relative_path):
 
 def get_sec(my_time):
     """Return seconds from hh:mm:ss format."""
-    h, m, s = my_time.split(':')
+    if ":" in my_time:
+        try:
+            h, m, s = my_time.split(':')
+        except:
+            h=0
+            m, s = my_time.split(':')
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 class MyIcons(object):
@@ -107,7 +112,7 @@ class MyIcons(object):
         self.west_lblue               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
 
         #//________________________________________________________________________________
-        color_folder                  = "#438EC8" #mid blue
+        color_folder="#438EC8" #mid blue
         self.block_mblue              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
         self.cancel_mblue             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
         self.cloud_download_mblue     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
@@ -165,3 +170,41 @@ class MyIcons(object):
         self.subscriptions_white      = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'subscriptions.png'))
         self.travel_explore_white     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'travel_explore.png'))
         self.west_white               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
+
+        #//________________________________________________________________________________
+        color_folder="#8b0000" # red
+        self.block_red              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
+        self.cancel_red             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
+        self.cloud_download_red     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
+        self.download_off_red       = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'download_off.png'))
+        self.east_red               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'east.png'))
+        self.favorite_red           = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'favorite.png'))
+        self.file_download_done_red = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'file_download_done.png'))
+        self.north_red              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'north.png'))
+        self.restore_red            = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'restore.png'))
+        self.save_alt_red           = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'save_alt.png'))
+        self.schedule_red           = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'schedule.png'))
+        self.south_red              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'south.png'))
+        self.space_bar_red          = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'space_bar.png'))
+        self.subscriptions_red      = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'subscriptions.png'))
+        self.travel_explore_red     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'travel_explore.png'))
+        self.west_red               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
+
+        #//________________________________________________________________________________
+        color_folder="#009534" #green
+        self.block_green              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
+        self.cancel_green             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
+        self.cloud_download_green     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
+        self.download_off_green       = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'download_off.png'))
+        self.east_green               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'east.png'))
+        self.favorite_green           = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'favorite.png'))
+        self.file_download_done_green = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'file_download_done.png'))
+        self.north_green              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'north.png'))
+        self.restore_green            = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'restore.png'))
+        self.save_alt_green           = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'save_alt.png'))
+        self.schedule_green           = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'schedule.png'))
+        self.south_green              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'south.png'))
+        self.space_bar_green          = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'space_bar.png'))
+        self.subscriptions_green      = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'subscriptions.png'))
+        self.travel_explore_green     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'travel_explore.png'))
+        self.west_green               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
