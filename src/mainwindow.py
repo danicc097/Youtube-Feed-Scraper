@@ -219,11 +219,11 @@ class NewWindow(QMainWindow):
 
     def add_new_window(self):
         """Creates new MainWindow instance."""
-        app_icon = QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png')))
+        self.app_icon = QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png')))
         window = MainWindow(self)
         window.setWindowTitle("Youtube Scraper")
-        app.setWindowIcon(app_icon)
-        window.setWindowIcon(app_icon)
+        app.setWindowIcon(self.app_icon)
+        window.setWindowIcon(self.app_icon)
         self.window_list.append(window)  # it's not garbage
 
         #* Fancier style
@@ -260,14 +260,13 @@ class MainWindow(QMainWindow):
         self.windowManager = window_manager
         self.GUI_preferences_path = str(Path.joinpath(RUNTIME_DIR, 'GUI_preferences.ini'))
         #! CRUCIAL set objectNames, else QSettings::setValue: Empty key passed
-        # self.GUI_preferences = QtCore.QSettings(self.GUI_preferences_path, QtCore.QSettings.IniFormat)
         self.my_settings = QtCore.QSettings(self.GUI_preferences_path, QtCore.QSettings.IniFormat)
         #* Object names not to be saved to settings
         self.objects_to_exclude = ["listVideos"]
 
         #* Async download manager
         self.network_manager = CustomNetworkManager()  # only one instance necessary for the whole app
-        self.network_manager.downloaded.connect(self.GlobalClientLoader)
+        self.network_manager.downloaded.connect(self.global_client_loader)
         self.sender_list = []  # prevent gc on sender objects
 
         #* QGraphicsEffect
@@ -308,15 +307,12 @@ class MainWindow(QMainWindow):
 
         self.create_music_controls()
 
-        self.listVideos = QtWidgets.QListWidget(
-            self.centralwidget,
-            objectName="listVideos",
-            currentItemChanged=self.onItemChange,
-        )
+        self.listVideos = QtWidgets.QListWidget(self.centralwidget, objectName="listVideos")
         self.listVideos.setTabKeyNavigation(False)
         self.listVideos.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.listVideos.customContextMenuRequested.connect(self.onListItemRightClick)  # position passed
-        self.listVideos.itemClicked.connect(self.onListItemLeftClick)
+        self.listVideos.customContextMenuRequested.connect(self.on_list_item_right_click)  # position passed
+        self.listVideos.itemClicked.connect(self.on_list_item_left_click)
+        self.listVideos.currentItemChanged.connect(self.on_item_change)
 
         self.create_spoiler_section(font=font)
 
@@ -336,12 +332,12 @@ class MainWindow(QMainWindow):
         ##############?##############?##############?##############?
 
         #* Custom effect
-        self.applyEffectOnHover(self.horizontalSlider)
-        self.applyEffectOnHover(self.listVideos)
-        self.applyEffectOnHover(self.playButton)
-        self.applyEffectOnHover(self.fastForwardButton)
-        self.applyEffectOnHover(self.rewindButton)
-        self.applyEffectOnHover(self.spoiler)
+        self.apply_effect_on_hover(self.horizontalSlider)
+        self.apply_effect_on_hover(self.listVideos)
+        self.apply_effect_on_hover(self.playButton)
+        self.apply_effect_on_hover(self.fastForwardButton)
+        self.apply_effect_on_hover(self.rewindButton)
+        self.apply_effect_on_hover(self.spoiler)
 
         #* Thread runner
         self.runner = None
@@ -352,7 +348,7 @@ class MainWindow(QMainWindow):
 
         #* Tray icon
         self.message_is_being_shown = False
-        self.createTrayIcon()
+        self.create_tray_icon()
 
 
         self.signal.add_listitem.connect(self.fill_list_widget)
@@ -370,27 +366,48 @@ class MainWindow(QMainWindow):
 
         self.setup_media_player()
 
-        self.setCustomStylesheets()
-
+        self.apply_custom_stylesheets()
+                
         QtWidgets.QAction("Quit", self).triggered.connect(self.closeEvent)
 
     def create_spoiler_section(self,font=None):
         """Expandable section below."""
         self.spoiler = Spoiler(title="Settings", ref_parent=self,font=font)
+        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
         self.list_settings_combo=QComboBox(objectName="list_settings_combo",font=font)
         self.list_settings_combo.addItems(["Favorites","Blacklist"])
         self.list_settings=QListWidget(objectName="list_settings")
-        label = QLabel("LOREM IPSUM LOREM IPSUM LOREM IPSUM \n LOREM IPSUM LOREM IPSUM ")
+        self.list_settings.setSizePolicy(sizePolicy)
         main_layout = QHBoxLayout()
-        layout_0 = QVBoxLayout()
-        layout_0.addWidget(self.list_settings_combo)
-        layout_0.addWidget(self.list_settings)
-        layout_1 = QVBoxLayout()
-        layout_1.addWidget(label)
-        main_layout.addLayout(layout_0)
-        main_layout.addLayout(layout_1)
+        vLayout_0 = QVBoxLayout()
+        vLayout_0.addWidget(self.list_settings_combo)
+        vLayout_0.addWidget(self.list_settings)
+
+        self.cb_delete_on_exit = QCheckBox("Delete download folder on exit",objectName="cb_delete_on_exit")
+        self.cb_notify_on_download = QCheckBox("Notify when all downloads finish",objectName="cb_delete_on_exit")
+        self.cb_use_temp_folder = QCheckBox("Use temporary folder",objectName="cb_use_temp_folder")
+        self.media_download_path = QLineEdit(
+            r"D:\Desktop\TEST_DOWNLOADS", # TODO "Choose a different download folder",
+            objectName="media_download_path",
+            enabled=False,
+            readOnly=True,
+            )
+        self.cb_use_temp_folder.toggled.connect(self.media_download_path.setEnabled
+            )
+        
+        vLayout_1 = QVBoxLayout()
+        vLayout_1.addWidget(self.cb_delete_on_exit)
+        vLayout_1.addWidget(self.cb_notify_on_download)
+        hLayout_1a=QHBoxLayout()
+        hLayout_1a.addWidget(self.cb_use_temp_folder)
+        hLayout_1a.addWidget(self.media_download_path)
+        vLayout_1.addLayout(hLayout_1a)
+
+        main_layout.addLayout(vLayout_0)
+        main_layout.addLayout(vLayout_1)
         # set any QLayout in expandable item
-        self.spoiler.setContentLayout(main_layout)
+        self.spoiler.set_content_layout(main_layout)
+
 
     def setup_media_player(self):
         self.player = QMediaPlayer()
@@ -399,21 +416,21 @@ class MainWindow(QMainWindow):
         self.is_playing=False
         self.current_item=None
 
-        self.player.mediaStatusChanged.connect(self.onMediaStatusChanged)
-        self.player.stateChanged.connect(self.onStateChanged)
-        # self.player.positionChanged.connect(self.onPositionChanged)
+        self.player.mediaStatusChanged.connect(self.on_media_status_changed)
+        self.player.stateChanged.connect(self.on_state_changed)
+        # self.player.positionChanged.connect(self.on_position_changed)
         self.player.durationChanged.connect(self.horizontalSlider.setMaximum)
         self.player.positionChanged.connect(self.horizontalSlider.setValue)
         # self.player.volumeChanged.connect()
         self.player.setVolume(60)
 
     def restore_settings_on_start(self):
+        self.save_to_runtimedir = True
         if os.path.exists(self.GUI_preferences_path):
-            # try:
-            guirestore(self, self.my_settings)
-            self.save_to_runtimedir = True
-            # except:
-            #     pass
+            try:
+                guirestore(self, self.my_settings)
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(self, 'Error', f"Could not restore settings: {e}")
         else:
             with open(self.GUI_preferences_path, 'w') as f:
                 guisave(self, self.my_settings, self.objects_to_exclude)
@@ -433,20 +450,20 @@ class MainWindow(QMainWindow):
             self,
             shortcut="Ctrl+O",
             icon=QIcon(ICONS.open),
-            triggered=self.readFile,
+            triggered=self.read_file,
         )
         self.actionSave = QtWidgets.QAction(
             "Save",
             self,
             shortcut="Ctrl+S",
             icon=QIcon(ICONS.save),
-            triggered=self.writeFile,
+            triggered=self.write_file,
         )
         self.actionSaveAs = QtWidgets.QAction(
             "Save as...",
             self,
             shortcut="Ctrl+Shift+S",
-            triggered=self.writeNewFile,
+            triggered=self.write_new_file,
         )
         self.actionExit = QtWidgets.QAction(
             "Exit",
@@ -464,13 +481,13 @@ class MainWindow(QMainWindow):
             "About",
             self,
             icon=QIcon(ICONS.about),
-            triggered=self.AboutInfo,
+            triggered=self.about_info,
         )
         self.actionGitHubHomepage = QtWidgets.QAction(
             "GitHub Homepage",
             self,
             icon=QIcon(ICONS.github),
-            triggered=self.GitHubLink,
+            triggered=self.github_link,
         )
         self.menuFile.addAction(self.actionOpen)
         self.menuFile.addSeparator()
@@ -488,12 +505,12 @@ class MainWindow(QMainWindow):
 
     def create_toolbar(self):
         self.actionGetFeed = QtWidgets.QAction("Scrape YouTube feed",icon=QIcon(ICONS.travel_explore))
-        self.actionGetFeed.triggered.connect(lambda: self.startWorker("populate_worker"))
+        self.actionGetFeed.triggered.connect(lambda: self.start_worker("populate_worker"))
         self.actionRestoreFeed = QtWidgets.QAction("Restore YouTube feed",icon=QIcon(ICONS.restore))
         self.actionOpenFeed = QtWidgets.QAction("Open YouTube in browser",icon=QIcon(ICONS.subscriptions))
-        self.actionOpenFeed.triggered.connect(self.YouTubeLink)
+        self.actionOpenFeed.triggered.connect(self.youtube_link)
         self.actionShowHowToUse = QtWidgets.QAction("Show usage",icon=QIcon(ICONS.keyboard_alt))
-        self.actionShowHowToUse.triggered.connect(self.showHowToUsePopup)
+        self.actionShowHowToUse.triggered.connect(self.show_how_to_use)
 
         self.toolBar = QtWidgets.QToolBar(self)
         self.toolBar.addAction(self.actionGetFeed)
@@ -518,7 +535,7 @@ class MainWindow(QMainWindow):
             iconSize   = QtCore.QSize(48, 48),
             sizePolicy = size_policy,
             styleSheet = "border: none",
-            clicked    = self.onPlay,
+            clicked    = self.on_play,
         )
         self.rewindButton = QtWidgets.QPushButton(
             "",
@@ -528,7 +545,7 @@ class MainWindow(QMainWindow):
             iconSize   = QtCore.QSize(32, 32),
             sizePolicy = size_policy,
             styleSheet = "border: none",
-            clicked    = self.onRewind,
+            clicked    = self.on_rewind,
         )
         self.fastForwardButton = QtWidgets.QPushButton(
             "",
@@ -538,7 +555,7 @@ class MainWindow(QMainWindow):
             iconSize   = QtCore.QSize(32, 32),
             sizePolicy = size_policy,
             styleSheet = "border: none",
-            clicked    = self.onFastForward,
+            clicked    = self.on_fast_forward,
         )
 
         spacerItem = QtWidgets.QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -556,13 +573,13 @@ class MainWindow(QMainWindow):
         self.horizontalSlider.setMinimum(0)
         # self.horizontalSlider.setMaximum(100)
         self.horizontalSlider.setTracking(False)
-        self.horizontalSlider.sliderMoved.connect(self.seekPosition)
+        self.horizontalSlider.sliderMoved.connect(self.seek_position)
         #* only use sliderMoved signal
         # self.horizontalSlider.valueChanged[int].connect(self.changeValue)
 
     # yapf: enable
 
-    def setCustomStylesheets(self):
+    def apply_custom_stylesheets(self):
         #* FOR A VERTICAL SLIDER - <:vertical>
         self.horizontalSlider.setStyleSheet(
             """
@@ -594,7 +611,7 @@ class MainWindow(QMainWindow):
         }"""
         )
 
-    def startWorker(self, worker: str, **kwargs):
+    def start_worker(self, worker: str, **kwargs):
         """Start a worker by its arbitrary name."""
         if worker == "populate_worker":
             populate_worker = Worker(self.populate_video_list)
@@ -603,14 +620,14 @@ class MainWindow(QMainWindow):
             video = kwargs.pop('video')
             if isinstance(video, Video):
                 if get_sec(video.duration) < self.max_video_duration:
-                    yt_dl_worker = Worker(video.start_download, self.media_download_path)
+                    yt_dl_worker = Worker(video.start_download, self.media_download_path.text())
                     self.threadpool.start(yt_dl_worker)
                 else:
                     pass
                     #TODO if not self.is_downloaded -> gray out
 
     def video_downloader(self, video: Video):
-        self.startWorker("video_download", video=video)
+        self.start_worker("video_download", video=video)
 
     def populate_video_list(self):
         """Trigger scraping workflow"""
@@ -739,7 +756,7 @@ class MainWindow(QMainWindow):
             icon_size=20,
             icon_max_size=30,
         )
-        self.applyEffectOnHover(download_button)
+        self.apply_effect_on_hover(download_button)
         frameLayout.addWidget(download_button)
 
         fav_button = CustomImageButton(
@@ -748,7 +765,7 @@ class MainWindow(QMainWindow):
             icon_size=20,
             icon_max_size=30,
         )
-        self.applyEffectOnHover(fav_button)
+        self.apply_effect_on_hover(fav_button)
         frameLayout.addWidget(fav_button)
 
         block_button = CustomImageButton(
@@ -757,7 +774,7 @@ class MainWindow(QMainWindow):
             icon_size=20,
             icon_max_size=30,
         )
-        self.applyEffectOnHover(block_button)
+        self.apply_effect_on_hover(block_button)
         frameLayout.addWidget(block_button)
 
         checkpoint_button = CustomImageButton(
@@ -766,7 +783,7 @@ class MainWindow(QMainWindow):
             icon_size=20,
             icon_max_size=30,
         )
-        self.applyEffectOnHover(checkpoint_button)
+        self.apply_effect_on_hover(checkpoint_button)
         frameLayout.addWidget(checkpoint_button)
 
         item_widget.frame.setLayout(frameLayout)
@@ -774,7 +791,7 @@ class MainWindow(QMainWindow):
         #* keep track of video in list widget and viceversa
         video.item_widget = item_widget
         item_widget.video = video
-        item_widget.media_path = os.path.join(self.media_download_path)
+        item_widget.media_path = os.path.join(self.media_download_path.text())
         item_widget.video.download_button = download_button
         # item_widget.frame.layout().itemAt() #! incomprehensible later on
 
@@ -783,11 +800,11 @@ class MainWindow(QMainWindow):
         author_thumbnail_sender = Sender("author_thumbnail", item_widget)
         # it's not garbage. Else the reply will return a destroyed Sender
         self.sender_list.append(author_thumbnail_sender)
-        self.network_manager.startDownload(url=video.author_thumbnail, sender=author_thumbnail_sender)
+        self.network_manager.start_download(url=video.author_thumbnail, sender=author_thumbnail_sender)
 
         vid_thumbnail_sender = Sender("vid_thumbnail", item_widget)
         self.sender_list.append(vid_thumbnail_sender)
-        self.network_manager.startDownload(url=video.thumbnail, sender=vid_thumbnail_sender)
+        self.network_manager.start_download(url=video.thumbnail, sender=vid_thumbnail_sender)
 
         # no need to subclass QListWidgetItem, just the widget (CustomQWidget) set on it
         item = QListWidgetItem(self.listVideos)
@@ -795,7 +812,7 @@ class MainWindow(QMainWindow):
         self.listVideos.addItem(item)
         self.listVideos.setItemWidget(item, item_widget)
 
-    def onListItemLeftClick(self, item: QListWidgetItem):
+    def on_list_item_left_click(self, item: QListWidgetItem):
         """Called when a QListWidget item is clicked."""
         if item is None: return
 
@@ -808,26 +825,26 @@ class MainWindow(QMainWindow):
             textUpQLabel.setGraphicsEffect(None)
             textUpQLabel.setStyleSheet("""color: rgb(70,130,180);""")
             authorQLabel = widget_i.authorQLabel
-            self.applyShadowEffect(authorQLabel)
+            self.apply_shadow_effect(authorQLabel)
             thumbnailQLabel = widget_i.thumbnailQLabel
-            self.applyShadowEffect(thumbnailQLabel)
+            self.apply_shadow_effect(thumbnailQLabel)
             frame = widget_i.frame
-            self.applyShadowEffect(frame)
+            self.apply_shadow_effect(frame)
             widget_i.color = QtGui.QColor(240, 240, 240)
 
         #* Format the clicked item
         widget = item.listWidget().itemWidget(item)  # returns a CustomQWidget
         shadow_color = QColor(49, 65, 129)
-        self.applyShadowEffect(widget.authorQLabel, color=shadow_color)
-        self.applyShadowEffect(widget.thumbnailQLabel, color=shadow_color)
-        self.applyShadowEffect(widget.frame, color=shadow_color)
-        self.applyShadowEffect(widget.textUpQLabel, color=shadow_color)
+        self.apply_shadow_effect(widget.authorQLabel, color=shadow_color)
+        self.apply_shadow_effect(widget.thumbnailQLabel, color=shadow_color)
+        self.apply_shadow_effect(widget.frame, color=shadow_color)
+        self.apply_shadow_effect(widget.textUpQLabel, color=shadow_color)
         widget.textUpQLabel.setStyleSheet("""
             color: rgb(255,255,255);
         """)
         widget.color = QtGui.QColor(61, 125, 194)
 
-    def onItemChange(self, item, previous_item):
+    def on_item_change(self, item, previous_item):
         self.current_item = item
         self.was_paused = self.playButton.isChecked()
         if self.was_paused:
@@ -839,7 +856,7 @@ class MainWindow(QMainWindow):
             self.player.play()
             self.played_video = current_video
 
-    def onMediaStatusChanged(self):
+    def on_media_status_changed(self):
         if self.player.mediaStatus() == QMediaPlayer.LoadedMedia and self.is_playing:
             durationT = self.player.duration()
             self.horizontalSlider.setRange(0, durationT)
@@ -848,20 +865,17 @@ class MainWindow(QMainWindow):
             # )
             self.player.play()
 
-    def onStateChanged(self):
+    def on_state_changed(self):
         if self.player.state() == QMediaPlayer.StoppedState:
             self.player.stop()
 
-    def onPositionChanged(self, position):
+    def on_position_changed(self, position):
         print("position")
         print(position)
         self.horizontalSlider.setValue(position)
         # setText('%d:%02d' % (int(position / 60000), int((position / 1000) % 60)))
 
-    def onVolumeChanged(self):
-        pass
-
-    def seekPosition(self, position):
+    def seek_position(self, position):
         sender = self.sender()
         if isinstance(sender, QSlider):
             if self.player.isSeekable():
@@ -873,8 +887,7 @@ class MainWindow(QMainWindow):
     #     self.player.setPosition(value)
     #     self.player.blockSignals(blocked)
 
-    def onPlay(self, checked):
-        """"""
+    def on_play(self, checked):
         if not self.current_item: return
         self.was_paused = checked
         print("now playing: ", self.was_paused)
@@ -903,21 +916,21 @@ class MainWindow(QMainWindow):
             self.player.pause()
 
     #TODO shortcut up down keys points to these two functions)
-    def onRewind(self):
+    def on_rewind(self):
         """"""
         if self.listVideos.currentRow() == 0: return
         previous_row = self.listVideos.currentRow() - 1
         self.listVideos.setCurrentRow(previous_row)
-        self.onListItemLeftClick(self.listVideos.item(previous_row))
+        self.on_list_item_left_click(self.listVideos.item(previous_row))
 
-    def onFastForward(self):
+    def on_fast_forward(self):
         """"""
         if self.listVideos.currentRow() == self.listVideos.count(): return
         next_row = self.listVideos.currentRow() + 1
         self.listVideos.setCurrentRow(next_row)
-        self.onListItemLeftClick(self.listVideos.item(next_row))
+        self.on_list_item_left_click(self.listVideos.item(next_row))
 
-    def applyShadowEffect(self, widget: QWidget, color=QColor(50, 50, 50), blur_radius=10, offset=2):
+    def apply_shadow_effect(self, widget: QWidget, color=QColor(50, 50, 50), blur_radius=10, offset=2):
         """Same widget graphic effect instance can't be used more than once
         else it's removed from the first widget. Workaround using a dict:\n
         Notes: when applied to a ``CustomImageButton``, this effect will add a rounded rect 
@@ -929,96 +942,67 @@ class MainWindow(QMainWindow):
         widget.setGraphicsEffect(self.shadow_effects[self.shadow_effects_counter])
         self.shadow_effects_counter += 1
 
-    def applyEffectOnHover(self, widget: QWidget):
+    def apply_effect_on_hover(self, widget: QWidget):
         """Installs an event filter to display a shadow upon hovering.
         The event filter is a MainWindow. An event filter receives all events 
         that are sent to ``widget``.\n        
         Note that applying this effect will:
             - override the set Enter and Leave events. (must call object.enterEvent() explicitly)
-            - add a rounded rect as with the ``applyShadowEffect`` method.
+            - add a rounded rect as with the ``apply_shadow_effect`` method.
             
         """
         widget.installEventFilter(self)
         self.widgets_with_hover.append(widget)
 
-    def GitHubLink(self):
-        QtGui.QDesktopServices.openUrl(QtCore.QUrl('https://github.com/danicc097/Youtube-Feed-Scraper'))
+    def github_link(self):
+        url = 'https://github.com/danicc097/Youtube-Feed-Scraper'
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
 
-    def YouTubeLink(self):
-        QtGui.QDesktopServices.openUrl(QtCore.QUrl("https://www.youtube.com/feed/subscriptions"))
+    def youtube_link(self):
+        url = "https://www.youtube.com/feed/subscriptions"
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
 
-    def showHowToUsePopup(self):
+    def show_how_to_use(self):
         self.notification = Notification(ref_parent=self)
-        frameLayout = QVBoxLayout(self.notification.frame)
-        # frameLayout.setAlignment(QtCore.Qt.AlignTop)
-        self.applyShadowEffect(self.notification)
+        self.apply_shadow_effect(self.notification)
         self.notification.animate_opening()  #? call before setting up widgets
         #! CRUCIAL inside frames to show properly
         sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
-        left_arrow = CustomImageButton(
-            icon=ICONS.west_lblue,
-            icon_size=25,
-            icon_max_size=30,
-        )
-        self.applyEffectOnHover(left_arrow)
-        right_arrow = CustomImageButton(
-            icon=ICONS.east_lblue,
-            icon_size=25,
-            icon_max_size=30,
-        )
-        self.applyEffectOnHover(right_arrow)
 
-        up_arrow = CustomImageButton(
-            icon=ICONS.north_lblue,
-            icon_size=25,
-            icon_max_size=30,
-        )
-        self.applyEffectOnHover(up_arrow)
-        down_arrow = CustomImageButton(
-            icon=ICONS.south_lblue,
-            icon_size=25,
-            icon_max_size=30,
-        )
-        self.applyEffectOnHover(down_arrow)
+        left_arrow  = CustomImageButton(icon=ICONS.west_lblue, icon_size=25, icon_max_size=30)
+        right_arrow = CustomImageButton(icon=ICONS.east_lblue, icon_size=25, icon_max_size=30)
+        up_arrow    = CustomImageButton(icon=ICONS.north_lblue, icon_size=25, icon_max_size=30)
+        down_arrow  = CustomImageButton(icon=ICONS.south_lblue, icon_size=25, icon_max_size=30)
+        spacebar    = CustomImageButton(icon=ICONS.space_bar_lblue, icon_size=25, icon_max_size=30)
 
-        updown_hLayout = QHBoxLayout()
-        # label = QLabel()
-        # label.setPixmap(QPixmap(ICONS.north_lblue))
-        # label.resize(40, 40)
-        # updown_hLayout.addWidget(label)
-        # label.setPixmap(QPixmap(ICONS.south_lblue))
-        # label.resize(40, 40)
+        all_GridLayout = QGridLayout()
         font = QFont()
         font.setPointSize(15)
-        updown_hLayout.addWidget(left_arrow, alignment=Qt.AlignLeft)
-        updown_hLayout.addWidget(right_arrow, alignment=Qt.AlignLeft)
-        updown_hLayout.addWidget(QLabel(
-            "Switch tracks",
-            sizePolicy=sizePolicy,
-            alignment=Qt.AlignLeft,
-            font=font,
-        ))
-        leftright_hLayout = QHBoxLayout()
-        leftright_hLayout.addWidget(up_arrow, alignment=Qt.AlignLeft)
-        leftright_hLayout.addWidget(down_arrow, alignment=Qt.AlignLeft)
-        leftright_hLayout.addWidget(
-            QLabel(
-                text="Fast forward / rewind",
-                sizePolicy=sizePolicy,
-                alignment=Qt.AlignLeft,
-                font=font,
-            )
-        )
-        # frameLayout.addWidget(QLabel("HOW TO USE"))
+
+        all_GridLayout.addWidget(left_arrow, 0, 0, 1, 1, alignment=Qt.AlignCenter)
+        all_GridLayout.addWidget(right_arrow, 0, 1, 1, 1, alignment=Qt.AlignCenter)
+        label = QLabel("Switch tracks", sizePolicy=sizePolicy, alignment=Qt.AlignLeft, font=font)
+        all_GridLayout.addWidget(label, 0, 2, 1, 1)
+
+        all_GridLayout.addWidget(up_arrow, 1, 0, 1, 1, alignment=Qt.AlignCenter)
+        all_GridLayout.addWidget(down_arrow, 1, 1, 1, 1, alignment=Qt.AlignCenter)
+        label = QLabel(text="Fast forward / Rewind", sizePolicy=sizePolicy, alignment=Qt.AlignLeft, font=font)
+        all_GridLayout.addWidget(label, 1, 2, 1, 1)
+
+        all_GridLayout.addWidget(spacebar, 3, 0, 1, 2, alignment=Qt.AlignCenter)
+        label = QLabel(text="Play / Pause", sizePolicy=sizePolicy, alignment=Qt.AlignLeft, font=font)
+        all_GridLayout.addWidget(label, 3, 2, 1, 1)
+
         font.setPointSize(20)
+        frameLayout = QVBoxLayout(self.notification.frame)
         frameLayout.addWidget(QLabel("HOW TO USE", sizePolicy=sizePolicy, alignment=Qt.AlignCenter, font=font))
-        frameLayout.addLayout(updown_hLayout)
-        frameLayout.addLayout(leftright_hLayout)
+
+        frameLayout.addLayout(all_GridLayout)
 
     @QtCore.pyqtSlot(QtCore.QPoint)
-    def onListItemRightClick(self, pos):
+    def on_list_item_right_click(self, pos):
         item = self.listVideos.itemAt(pos)
-        self.onListItemLeftClick(item)  # emulate click
+        self.on_list_item_left_click(item)  # emulate click
         menu = QtWidgets.QMenu()
         delete_row = menu.addAction("Remove")
         delete_row.setIconVisibleInMenu(True)
@@ -1028,7 +1012,7 @@ class MainWindow(QMainWindow):
             row = self.listVideos.row(item)
             self.listVideos.takeItem(row)
 
-    def writeNewFile(self):  # ? Save as
+    def write_new_file(self):  # ? Save as
         """Saves GUI user input to a new config file"""
         self.config_is_set += 1
         self.filename, _ = QtWidgets.QFileDialog.getSaveFileName(
@@ -1049,21 +1033,23 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QtWidgets.QMessageBox.critical(self, 'Error', f"Could not save settings: {e}")
 
-    def writeFile(self):  # ? Save
+    def write_file(self):  # ? Save
         """Saves GUI user input to the previously opened config file"""
-        #* A config file was found at runtime and restored
+        #* Default to writing to current directory
         if self.save_to_runtimedir:
             self.statusBar().showMessage("Changes saved to: {}".format(self.GUI_preferences_path))
             guisave(self, self.my_settings, self.objects_to_exclude)
-        #* A config file was opened from the menu
+            
+        #* A specific config file was opened from the menu
         elif self.config_is_set and self.filename != "":
             self.statusBar().showMessage("Changes saved to: {}".format(self.filename))
             self.my_settings = QtCore.QSettings(self.filename, QtCore.QSettings.IniFormat)
             guisave(self, self.my_settings, self.objects_to_exclude)
+            
         else:
-            self.writeNewFile()
+            self.write_new_file()
 
-    def readFile(self):  # ? Open
+    def read_file(self):  # ? Open
         """Restores GUI user input from a config file"""
         #* File dialog
         self.filename, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -1140,22 +1126,24 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.label_sync)
         self.statusBar().addPermanentWidget(self.title)
 
-    def showSuccess(self):
+    def push_all_videos_downloaded(self):
         self.trayIcon.show()
         if not self.hasFocus():
             self.message_is_being_shown = True
             self.trayIcon.showMessage(
-                f"RNC data has been loaded!\n", "Click here to start searching.", self.windowManager.app_icon,
-                1200 * 1000
+                f"🎼 All videos have been downloaded!\n", 
+                "Click here to start listening 🎵.",
+                self.windowManager.app_icon,
+                1200 * 1000,
             )  # milliseconds default
 
-    def notificationHandler(self):
+    def notification_handler(self):
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         self.show()
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
         self.show()
 
-    def createTrayIcon(self):
+    def create_tray_icon(self):
         self.restoreAction = QtWidgets.QAction("&Restore", self, triggered=self.showNormal)
         self.quitAction = QtWidgets.QAction("&Quit", self, triggered=self.close)  # invoke closeEvent
         self.trayIconMenu = QtWidgets.QMenu(self)
@@ -1165,14 +1153,14 @@ class MainWindow(QMainWindow):
         self.trayIcon = QSystemTrayIcon(self)
         self.trayIcon.setContextMenu(self.trayIconMenu)
         self.trayIcon.setIcon(QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))))
-        self.trayIcon.messageClicked.connect(self.notificationHandler)
+        self.trayIcon.messageClicked.connect(self.notification_handler)
 
-    def GlobalClientLoader(self, sender: Sender, byte_array: QByteArray):
+    def global_client_loader(self, sender: Sender, byte_array: QByteArray):
         """Handles requests made from a custom ``QNetworkAccessManager``"""
         if sender.sender_name == "vid_thumbnail":
             vid_thumbnail = QPixmap()
             vid_thumbnail.loadFromData(byte_array)
-            sender.sender_object.setThumbnail(vid_thumbnail)
+            sender.sender_object.set_thumbnail(vid_thumbnail)
 
         if sender.sender_name == "author_thumbnail":
             sender.sender_object.authorQLabel.set_round_label(byte_array)
@@ -1184,7 +1172,7 @@ class MainWindow(QMainWindow):
         self.time_sync.setSingleShot(True)
         self.time_sync.start(int(seconds) * 1000)
 
-    def AboutInfo(self):
+    def about_info(self):
         """Shows license information"""
         # parent is necessary to center msgbox by default
         self.infoScreen = QtWidgets.QMessageBox(self)
@@ -1210,7 +1198,7 @@ class MainWindow(QMainWindow):
         #* apply shadow effect when hovered over
         if isinstance(object, QWidget) and object in self.widgets_with_hover:
             if event.type() == QtCore.QEvent.Enter:
-                self.applyShadowEffect(object, color=QColor(16, 47, 151), blur_radius=20, offset=0)
+                self.apply_shadow_effect(object, color=QColor(16, 47, 151), blur_radius=20, offset=0)
                 #? the custom event is overridden by the effect
                 if isinstance(object, CustomImageButton):
                     object.enterEvent(event)
@@ -1259,11 +1247,11 @@ class MainWindow(QMainWindow):
         elif event.key() == Qt.Key_Left:
             self.horizontalSlider.setValue(self.horizontalSlider.value() - 20 * 1000)
         elif event.key() == Qt.Key_Space:
-            self.onPlay(True)
+            self.on_play(True)
         elif event.key() == Qt.Key_Up:
-            self.onRewind()
+            self.on_rewind()
         elif event.key() == Qt.Key_Down:
-            self.onFastForward()
+            self.on_fast_forward()
         else:
             QWidget.keyPressEvent(self, event)
 

@@ -7,6 +7,10 @@ from PyQt5.QtWidgets import (
 
 # ? Has to be manually defined for each widget, unfortunately
 
+#//___________________________________________________________________
+#! CRUCIAL set objectNames, else QSettings::setValue: Empty key passed
+#//___________________________________________________________________
+
 
 def guisave(self, settings: QtCore.QSettings, objects_to_exclude=None):
     # sourcery no-metrics

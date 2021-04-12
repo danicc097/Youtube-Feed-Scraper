@@ -52,14 +52,14 @@ class CustomNetworkManager(QObject):
     Usage:
     ------
         ``foo = CustomNetworkManager()`` \n
-        ``foo.downloaded.connect(lambda: GlobalClientLoader())`` \n
+        ``foo.downloaded.connect(lambda: global_client_loader())`` \n
         original sender and data are passed 
         
-        ``foo.startDownload(QUrl(my_url), sender)`` 
+        ``foo.start_download(QUrl(my_url), sender)`` 
         execution continues. The download is tied to ``sender``.
         
         in main thread:
-        ``def GlobalClientLoader(sender,byte_array):`` \n
+        ``def global_client_loader(sender,byte_array):`` \n
             ``sender.sender_name == "some_name":``
                ``do_stuff(sender,byte_array)``
     """
@@ -82,7 +82,7 @@ class CustomNetworkManager(QObject):
         else:
             print("[INFO] Error: {}".format(reply.errorString()))
 
-    def startDownload(self, url: str, sender: Sender):
+    def start_download(self, url: str, sender: Sender):
         """Use in main application to start a download from ``url`` for
         a given object ``sender``."""
         request = QNetworkRequest(QUrl(url))

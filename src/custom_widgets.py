@@ -84,11 +84,11 @@ class Spoiler(QWidget):
             toggleButton.setArrowType(arrow_type)
             self.toggleAnimation.setDirection(direction)
             self.toggleAnimation.start()
-            self.applyShadowEffect()
+            self.apply_shadow_effect()
 
         self.toggleButton.clicked.connect(start_animation)
 
-    def applyShadowEffect(self, color=QColor(50, 50, 50), blur_radius=10, offset=2):
+    def apply_shadow_effect(self, color=QColor(50, 50, 50), blur_radius=10, offset=2):
         effect = QGraphicsDropShadowEffect(self)
         effect.setBlurRadius(blur_radius)
         effect.setColor(color)
@@ -102,7 +102,7 @@ class Spoiler(QWidget):
 
         self.setGraphicsEffect(effect)
 
-    def setContentLayout(self, contentLayout: QLayout):
+    def set_content_layout(self, contentLayout: QLayout):
         """Adds a layout ``contentLayout`` to the spoiler area"""
         # Not sure if this is equivalent to self.contentArea.destroy()
         self.contentArea.destroy()
@@ -162,7 +162,7 @@ class CustomVerticalFrame(QFrame):
         self.border_radius = 15
         self.setStyleSheet(
             "color: rgb(0, 0, 0);"  #text color
-            "background-color: rgb(250, 250, 250);"
+            "background-color: rgb(245, 245, 245);"
             "text-align: center;"
             # "border-style: solid;"
             # "border-width: 0px 0px 0px 2px;"
@@ -290,9 +290,9 @@ class CustomQWidget(QWidget):
             color: rgb(70,130,180);
         """)
 
-        self.applyShadowEffect(self.authorQLabel)
-        self.applyShadowEffect(self.frame)
-        self.applyShadowEffect(self.thumbnailQLabel)
+        self.apply_shadow_effect(self.authorQLabel)
+        self.apply_shadow_effect(self.frame)
+        self.apply_shadow_effect(self.thumbnailQLabel)
 
         self._color = base_color
 
@@ -322,7 +322,7 @@ class CustomQWidget(QWidget):
         painter.drawPath(painter_path)
         painter.setClipPath(painter_path)
 
-    def applyShadowEffect(self, widget: QWidget):
+    def apply_shadow_effect(self, widget: QWidget):
         """Same widget graphic effect instance can't be used more than once
         else it's removed from the first widget. Workaround using a dict:"""
         self.shadow_effects[self.shadow_effects_counter] = QGraphicsDropShadowEffect(self)
@@ -336,7 +336,7 @@ class CustomQWidget(QWidget):
         self.textUpQLabel.setText(text)
         self.textUpQLabel.setSizePolicy(QSizePolicy(QSizePolicy.Minimum, QSizePolicy.MinimumExpanding))
 
-    def setThumbnail(self, img: QPixmap):
+    def set_thumbnail(self, img: QPixmap):
         # img = QPixmap(img)
         # important to use a SmoothTransformation
         thumbnail_width = self.thumbnailQLabel.width()
