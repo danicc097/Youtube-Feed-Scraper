@@ -15,8 +15,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (
-    QByteArray, QEasingCurve, QObject, QPoint, QPointF, QPropertyAnimation, QRectF, QSequentialAnimationGroup, QSize,
-    Qt, QUrl, pyqtProperty, pyqtSignal, pyqtSlot
+    QByteArray, QEasingCurve, QObject, QPoint, QPointF, QPropertyAnimation, QRect, QRectF, QSequentialAnimationGroup,
+    QSize, QTimer, QVariantAnimation, Qt, QUrl, pyqtProperty, pyqtSignal, pyqtSlot
 )
 from PyQt5.QtGui import (QBrush, QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPaintEvent, QPen, QPixmap)
 from PyQt5.QtNetwork import (QNetworkAccessManager, QNetworkReply, QNetworkRequest)
@@ -28,7 +28,7 @@ from PyQt5.QtWidgets import (
 
 
 class Spoiler(QWidget):
-    def __init__(self, parent=None, title='', animationDuration=300, ref_parent=None):
+    def __init__(self, parent=None, title='', animationDuration=300, ref_parent=None, font=None):
         """
         Collapsable and expandable section.
         Based on:
@@ -42,6 +42,7 @@ class Spoiler(QWidget):
         self.headerLine = QFrame()
         self.toggleButton = QToolButton()
         self.already_filtered = True
+        if font is not None: self.setFont(font)
         mainLayout = QGridLayout()
 
         toggleButton = self.toggleButton
@@ -68,7 +69,6 @@ class Spoiler(QWidget):
         toggleAnimation.addAnimation(QtCore.QPropertyAnimation(self, b"maximumHeight"))
         toggleAnimation.addAnimation(QtCore.QPropertyAnimation(self.contentArea, b"maximumHeight"))
         # don't waste space
-        mainLayout = mainLayout
         mainLayout.setVerticalSpacing(0)
         mainLayout.setContentsMargins(0, 0, 0, 0)
         row = 0
@@ -77,11 +77,6 @@ class Spoiler(QWidget):
         row += 1
         mainLayout.addWidget(self.contentArea, row, 0, 1, 3)
         self.setLayout(mainLayout)
-        label = QLabel("LOREM IPSUM LOREM IPSUM LOREM IPSUM \n LOREM IPSUM LOREM IPSUM ")
-        spoiler_layout = QVBoxLayout()
-        spoiler_layout.addWidget(label)
-        # set any QLayout in expandable item
-        self.setContentLayout(spoiler_layout)
 
         def start_animation(checked):
             arrow_type = Qt.DownArrow if checked else Qt.RightArrow
@@ -130,7 +125,7 @@ class CustomFrame(QFrame):
         super(QFrame, self).__init__(parent)
         self.border_radius = 6
         self.setStyleSheet(
-            "color: rgb(237, 237, 237);"
+            "color: rgb(0, 0, 0);"  #text color
             "background-color: rgb(237, 237, 237);"
             "text-align: center;"
             f"border-radius: {self.border_radius}px {self.border_radius}px {self.border_radius}px {self.border_radius}px;"
@@ -146,15 +141,16 @@ class CustomFrame(QFrame):
         painter.setRenderHint(QtGui.QPainter.HighQualityAntialiasing, True)
         painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
         brush_width = 3
-        width_offset = 4
+        # account for decorative line overlap
+        self.setContentsMargins(self.border_radius, 0, 0, 0)
         height_offset = self.border_radius
         pen = QtGui.QPen(QColor(67, 142, 200), brush_width)
         pen.setCapStyle(Qt.RoundCap)
         painter.setPen(pen)
         painter.drawLine(
-            width_offset + brush_width / 2,
+            self.border_radius,
             height_offset,
-            width_offset + brush_width / 2,
+            self.border_radius,
             self.height() - height_offset,
         )
 
@@ -162,10 +158,11 @@ class CustomFrame(QFrame):
 class CustomVerticalFrame(QFrame):
     def __init__(self, parent=None, ref_parent=None):
         super(QFrame, self).__init__(parent)
-        self.border_radius = 6
+
+        self.border_radius = 15
         self.setStyleSheet(
-            "color: rgb(237, 237, 237);"
-            "background-color: rgb(237, 237, 237);"
+            "color: rgb(0, 0, 0);"  #text color
+            "background-color: rgb(250, 250, 250);"
             "text-align: center;"
             # "border-style: solid;"
             # "border-width: 0px 0px 0px 2px;"
@@ -173,7 +170,6 @@ class CustomVerticalFrame(QFrame):
             f"border-radius: {self.border_radius}px {self.border_radius}px {self.border_radius}px {self.border_radius}px;"
             "padding: 0px;"
         )
-        # self.setFixedWidth(200)
 
     def paintEvent(self, event):
         #* draw decorative line between border radius centers
@@ -181,18 +177,79 @@ class CustomVerticalFrame(QFrame):
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
         painter.setRenderHint(QtGui.QPainter.HighQualityAntialiasing, True)
         painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
-        brush_width = 3
+        brush_width = 8
+        # account for decorative line overlap
+        self.setContentsMargins(0, self.border_radius, 0, 0)
         width_offset = 4
         height_offset = self.border_radius
         pen = QtGui.QPen(QColor(67, 142, 200), brush_width)
         pen.setCapStyle(Qt.RoundCap)
         painter.setPen(pen)
         painter.drawLine(
-            width_offset + brush_width / 2,
             height_offset,
-            width_offset + brush_width / 2,
-            self.height() - height_offset,
+            height_offset,
+            self.width() - height_offset,
+            height_offset,
         )
+
+
+# class Message(QWidget):
+#     def __init__(self, title, message, parent=None):
+#         QWidget.__init__(self, parent)
+#         self.vLayout = QVBoxLayout()
+#         self.titleLabel = QLabel(title, self)
+#         self.titleLabel.setStyleSheet("font-size: 18px; font-weight: bold; padding: 0;")
+#         self.frame = CustomVerticalFrame()
+#         self.vLayout.addWidget(self.titleLabel)
+#         self.vLayout.addWidget(self.frame)
+#         # self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+
+
+class Notification(QWidget):
+    def __init__(self, parent=None, ref_parent=None):
+        super(QWidget, self).__init__(parent=None)
+        self.ref_parent = ref_parent
+        # popup will hide when clicked outside
+        self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+
+        self.frame = CustomVerticalFrame()
+        # self.setMinimumWidth(650) #? DON'T. use frame's minimumwidth instead
+        self.frame.setSizePolicy(QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Ignored))
+        self.frame.setMinimumWidth(600)
+        self.mainLayout = QVBoxLayout(self)
+        self.mainLayout.addWidget(self.frame, alignment=Qt.AlignCenter)
+        self.finalHeight = 150.0
+        self.center(self)
+        self.center(self.frame)
+        self.show()
+
+    def center(self, widget):
+        qr = widget.frameGeometry()
+        cp = QApplication.primaryScreen().geometry().center()
+        cp.setY(cp.y() + self.finalHeight)  # offset
+        qr.moveCenter(cp)
+        widget.move(qr.topLeft())
+
+    def animate_opening(self):
+
+        self._animation = QtCore.QVariantAnimation(
+            self,
+            startValue=0.0,
+            endValue=self.finalHeight,
+            duration=500,
+            valueChanged=self.on_valueChanged,
+        )
+        self._animation.setEasingCurve(QEasingCurve.InCubic)
+        self.start_animation()
+
+    def start_animation(self):
+        if self._animation.state() != QtCore.QAbstractAnimation.Running:
+            self._animation.start()
+
+    @QtCore.pyqtSlot(QtCore.QVariant)
+    def on_valueChanged(self, value):
+        self.frame.setFixedSize(self.frame.width(), value)
 
 
 class CustomQWidget(QWidget):
@@ -205,6 +262,7 @@ class CustomQWidget(QWidget):
 
         self.textUpQLabel = QLabel()
         font = QFont()
+        font.setFamily("Fira Sans")
         font.setPointSize(12)
         self.textUpQLabel.setFont(font)
 
@@ -279,7 +337,6 @@ class CustomQWidget(QWidget):
         self.textUpQLabel.setSizePolicy(QSizePolicy(QSizePolicy.Minimum, QSizePolicy.MinimumExpanding))
 
     def setThumbnail(self, img: QPixmap):
-        #TODO BREAKS ALIGNMENT IN CUSTOM FRAME
         # img = QPixmap(img)
         # important to use a SmoothTransformation
         thumbnail_width = self.thumbnailQLabel.width()

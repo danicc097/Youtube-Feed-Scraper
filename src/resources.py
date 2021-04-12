@@ -46,35 +46,35 @@ class MyIcons(object):
         self.set_my_attributes(BASEDIR)
 
     def set_my_attributes(self, BASEDIR):
-        self.main_icon           = str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))
-        self.playback_play       = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png'))
-        self.playback_pause      = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_pause.png'))
-        self.playback_ff         = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_ff.png'))
-        self.playback_rew        = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_rew.png'))
-        self.save                = str(Path.joinpath(BASEDIR, 'data', 'images', 'save.png'))
-        self.open                = str(Path.joinpath(BASEDIR, 'data', 'images', 'open.png'))
-        self.about               = str(Path.joinpath(BASEDIR, 'data', 'images', 'about.png'))
-        self.settings            = str(Path.joinpath(BASEDIR, 'data', 'images', 'settings.png'))
-        self.exit                = str(Path.joinpath(BASEDIR, 'data', 'images', 'exit.png'))
-        self.github              = str(Path.joinpath(BASEDIR, 'data', 'images', 'github.png'))
-        self.block               = str(Path.joinpath(BASEDIR, 'data', 'images', 'block.png'))
-        self.cancel              = str(Path.joinpath(BASEDIR, 'data', 'images', 'cancel.png'))
-        self.cloud_download      = str(Path.joinpath(BASEDIR, 'data', 'images', 'cloud_download.png'))
-        self.east                = str(Path.joinpath(BASEDIR, 'data', 'images', 'east.png'))
-        self.west                = str(Path.joinpath(BASEDIR, 'data', 'images', 'west.png'))
-        self.north               = str(Path.joinpath(BASEDIR, 'data', 'images', 'north.png'))
-        self.favorite            = str(Path.joinpath(BASEDIR, 'data', 'images', 'favorite.png'))
-        self.file_download_done  = str(Path.joinpath(BASEDIR, 'data', 'images', 'file_download_done.png'))
-        self.restore             = str(Path.joinpath(BASEDIR, 'data', 'images', 'restore.png'))
-        self.save_alt            = str(Path.joinpath(BASEDIR, 'data', 'images', 'save_alt.png'))
-        self.schedule            = str(Path.joinpath(BASEDIR, 'data', 'images', 'schedule.png'))
-        self.space_bar           = str(Path.joinpath(BASEDIR, 'data', 'images', 'space_bar.png'))
-        self.subscriptions       = str(Path.joinpath(BASEDIR, 'data', 'images', 'subscriptions.png'))
-        self.travel_explore      = str(Path.joinpath(BASEDIR, 'data', 'images', 'travel_explore.png'))
+        self.main_icon          = str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))
+        self.playback_play      = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png'))
+        self.playback_pause     = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_pause.png'))
+        self.playback_ff        = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_ff.png'))
+        self.playback_rew       = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_rew.png'))
+        self.save               = str(Path.joinpath(BASEDIR, 'data', 'images', 'save.png'))
+        self.open               = str(Path.joinpath(BASEDIR, 'data', 'images', 'open.png'))
+        self.about              = str(Path.joinpath(BASEDIR, 'data', 'images', 'about.png'))
+        self.settings           = str(Path.joinpath(BASEDIR, 'data', 'images', 'settings.png'))
+        self.exit               = str(Path.joinpath(BASEDIR, 'data', 'images', 'exit.png'))
+        self.github             = str(Path.joinpath(BASEDIR, 'data', 'images', 'github.png'))
+        self.block              = str(Path.joinpath(BASEDIR, 'data', 'images', 'block.png'))
+        self.cancel             = str(Path.joinpath(BASEDIR, 'data', 'images', 'cancel.png'))
+        self.cloud_download     = str(Path.joinpath(BASEDIR, 'data', 'images', 'cloud_download.png'))
+        self.east               = str(Path.joinpath(BASEDIR, 'data', 'images', 'east.png'))
+        self.west               = str(Path.joinpath(BASEDIR, 'data', 'images', 'west.png'))
+        self.north              = str(Path.joinpath(BASEDIR, 'data', 'images', 'north.png'))
+        self.favorite           = str(Path.joinpath(BASEDIR, 'data', 'images', 'favorite.png'))
+        self.file_download_done = str(Path.joinpath(BASEDIR, 'data', 'images', 'file_download_done.png'))
+        self.restore            = str(Path.joinpath(BASEDIR, 'data', 'images', 'restore.png'))
+        self.save_alt           = str(Path.joinpath(BASEDIR, 'data', 'images', 'save_alt.png'))
+        self.schedule           = str(Path.joinpath(BASEDIR, 'data', 'images', 'schedule.png'))
+        self.space_bar          = str(Path.joinpath(BASEDIR, 'data', 'images', 'space_bar.png'))
+        self.subscriptions      = str(Path.joinpath(BASEDIR, 'data', 'images', 'subscriptions.png'))
+        self.travel_explore     = str(Path.joinpath(BASEDIR, 'data', 'images', 'travel_explore.png'))
 
         #* Icons supporting multicolor. default black
         #//________________________________________________________________________________
-        color_folder="black"
+        color_folder            = "black"
         self.block              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
         self.cancel             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
         self.cloud_download     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
@@ -91,9 +91,11 @@ class MyIcons(object):
         self.subscriptions      = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'subscriptions.png'))
         self.travel_explore     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'travel_explore.png'))
         self.west               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
+        self.keyboard_alt       = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'keyboard_alt.png'))
+        self.delete             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'delete.png'))
 
         #//________________________________________________________________________________
-        color_folder="#8AB4F8" #light blue
+        color_folder                  = "#8AB4F8" #light blue
         self.block_lblue              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
         self.cancel_lblue             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
         self.cloud_download_lblue     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
@@ -110,9 +112,10 @@ class MyIcons(object):
         self.subscriptions_lblue      = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'subscriptions.png'))
         self.travel_explore_lblue     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'travel_explore.png'))
         self.west_lblue               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
+        self.keyboard_alt_lblue       = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'keyboard_alt.png'))
 
         #//________________________________________________________________________________
-        color_folder="#438EC8" #mid blue
+        color_folder                  = "#438EC8" #mid blue
         self.block_mblue              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
         self.cancel_mblue             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
         self.cloud_download_mblue     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
@@ -133,8 +136,10 @@ class MyIcons(object):
         self.playback_pause_mblue     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'playback_pause.png'))
         self.playback_ff_mblue        = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'playback_ff.png'))
         self.playback_rew_mblue       = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'playback_rew.png'))
+        self.keyboard_alt_rew_mblue   = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'keyboard_alt_rew.png'))
+
         #//________________________________________________________________________________
-        color_folder="grey"
+        color_folder                 = "grey"
         self.block_grey              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
         self.cancel_grey             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
         self.cloud_download_grey     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
@@ -151,9 +156,10 @@ class MyIcons(object):
         self.subscriptions_grey      = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'subscriptions.png'))
         self.travel_explore_grey     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'travel_explore.png'))
         self.west_grey               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
+        self.keyboard_alt_grey       = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'keyboard_alt.png'))
 
         #//________________________________________________________________________________
-        color_folder="white"
+        color_folder                  = "white"
         self.block_white              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
         self.cancel_white             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
         self.cloud_download_white     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
@@ -170,9 +176,10 @@ class MyIcons(object):
         self.subscriptions_white      = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'subscriptions.png'))
         self.travel_explore_white     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'travel_explore.png'))
         self.west_white               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
+        self.keyboard_alt_white       = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'keyboard_alt.png'))
 
         #//________________________________________________________________________________
-        color_folder="#8b0000" # red
+        color_folder                = "#8b0000" # red
         self.block_red              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
         self.cancel_red             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
         self.cloud_download_red     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
@@ -189,9 +196,10 @@ class MyIcons(object):
         self.subscriptions_red      = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'subscriptions.png'))
         self.travel_explore_red     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'travel_explore.png'))
         self.west_red               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
+        self.keyboard_alt_red       = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'keyboard_alt.png'))
 
         #//________________________________________________________________________________
-        color_folder="#009534" #green
+        color_folder                  = "#009534" #green
         self.block_green              = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'block.png'))
         self.cancel_green             = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cancel.png'))
         self.cloud_download_green     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'cloud_download.png'))
@@ -208,3 +216,4 @@ class MyIcons(object):
         self.subscriptions_green      = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'subscriptions.png'))
         self.travel_explore_green     = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'travel_explore.png'))
         self.west_green               = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'west.png'))
+        self.keyboard_alt_green       = str(Path.joinpath(BASEDIR, 'data', 'images', color_folder , 'keyboard_alt.png'))

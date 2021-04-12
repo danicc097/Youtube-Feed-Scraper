@@ -37,10 +37,13 @@ def guisave(self, settings: QtCore.QSettings, objects_to_exclude=None):
     for name, obj in inspect.getmembers(self):
         if isinstance(obj, QWidget) and obj.objectName() not in objects_to_exclude:
             if isinstance(obj, QComboBox):
-                name = obj.objectName()
-                index = obj.currentIndex()
-                text = obj.itemText(index)
-                settings.setValue(name, text)
+                try:
+                    name = obj.objectName()
+                    index = obj.currentIndex()
+                    text = obj.itemText(index)
+                    settings.setValue(name, text)
+                except:
+                    pass
 
             if isinstance(obj, QAction):
                 if obj.isCheckable():
@@ -51,6 +54,7 @@ def guisave(self, settings: QtCore.QSettings, objects_to_exclude=None):
             if isinstance(obj, QLineEdit):
                 name = obj.objectName()
                 value = obj.text()
+                print(name, value, "for ", obj)
                 settings.setValue(name, value)
 
             if isinstance(obj, QCheckBox):
