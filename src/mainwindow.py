@@ -60,7 +60,7 @@ from .custom_widgets import (AnimatedToggle, CustomFrame, CustomImageButton,
 from .networking import CustomNetworkManager, Sender
 from .resources import MyIcons, get_path, get_sec
 from .save_restore import guirestore, guisave
-
+from .youtube_scraper import get_feed_source
 # from qt_material import apply_stylesheet
 
 if __debug__:
@@ -381,7 +381,7 @@ class MainWindow(QMainWindow):
         self.listVideos.setTabKeyNavigation(False)
         self.listVideos.setContextMenuPolicy(Qt.CustomContextMenu)
         self.listVideos.customContextMenuRequested.connect(self.on_list_item_right_click)
-        # position passedself.listVideos.itemClicked.connect(self.on_list_item_left_click)
+        self.listVideos.itemClicked.connect(self.on_list_item_left_click)
         self.listVideos.currentItemChanged.connect(self.on_item_change)
 
     def _create_spoiler_section(self,font=None):
@@ -644,7 +644,7 @@ class MainWindow(QMainWindow):
     def populate_video_list(self):
         """Trigger scraping workflow"""
         self.signal.sync_icon.emit("Loading YouTube data", False)
-        json_var = self.get_yt_source_text(from_local_dir=True)
+        json_var = self.get_yt_source_text(from_local_dir=False)
         self.my_videos = self.get_my_videos(json_var)
         self.signal.sync_icon.emit("", True)
 
@@ -659,24 +659,25 @@ class MainWindow(QMainWindow):
 
         # TODO block user keyboard unless exit hotkey
         if not from_local_dir:
-            url = "https://www.youtube.com/feed/subscriptions"
-            webbrowser.open(url)
-            pyautogui.sleep(3)
-            pyautogui.hotkey("ctrl", "n")
-            pyautogui.typewrite(url)
-            pyautogui.hotkey("enter")
-            pyautogui.sleep(1)
-            pyautogui.press("end", presses=10, interval=1)
-            pyautogui.hotkey("ctrl", "u")
-            pyautogui.sleep(2)
-            pyautogui.hotkey("ctrl", "a")
-            pyautogui.sleep(0.1)
-            pyautogui.hotkey("ctrl", "c")
-            pyautogui.sleep(0.5)
-            pyautogui.hotkey("ctrl", "w")
-            pyautogui.sleep(0.2)
-            pyautogui.hotkey("ctrl", "w")
-            source = pyperclip.paste()
+            # url = "https://www.youtube.com/feed/subscriptions"
+            # webbrowser.open(url)
+            # pyautogui.sleep(3)
+            # pyautogui.hotkey("ctrl", "n")
+            # pyautogui.typewrite(url)
+            # pyautogui.hotkey("enter")
+            # pyautogui.sleep(1)
+            # pyautogui.press("end", presses=10, interval=1)
+            # pyautogui.hotkey("ctrl", "u")
+            # pyautogui.sleep(2)
+            # pyautogui.hotkey("ctrl", "a")
+            # pyautogui.sleep(0.1)
+            # pyautogui.hotkey("ctrl", "c")
+            # pyautogui.sleep(0.5)
+            # pyautogui.hotkey("ctrl", "w")
+            # pyautogui.sleep(0.2)
+            # pyautogui.hotkey("ctrl", "w")
+            # source = pyperclip.paste()
+            source=get_feed_source()
             try:
                 json_var = re.findall(r'ytInitialData = (.*?);', source, re.DOTALL | re.MULTILINE)[0]
             except Exception as e:
@@ -707,6 +708,7 @@ class MainWindow(QMainWindow):
         \nParameters:\n   
         ``json_var`` : ytInitialData variable, containing rendered feed videos data"""
 
+        #TODO move to module
         #* match all rendered video grids and get each video's data
         jsonpath_expr = parse('*..gridRenderer..gridVideoRenderer')
         videos_json = [match.value for match in jsonpath_expr.find(json_var)]
@@ -1053,7 +1055,7 @@ class MainWindow(QMainWindow):
             guisave(self, self.my_settings, self.objects_to_exclude)
             
         #* A specific config file was opened from the menu
-        elif self.config_is_set and self.filename != "":
+        elif self.config_is_set and self.filename:
             self.statusBar().showMessage("Changes saved to: {}".format(self.filename))
             self.my_settings = QtCore.QSettings(self.filename, QtCore.QSettings.IniFormat)
             guisave(self, self.my_settings, self.objects_to_exclude)
@@ -1072,7 +1074,7 @@ class MainWindow(QMainWindow):
             options=QtWidgets.QFileDialog.DontResolveSymlinks
         )
         #* Invalid file or none
-        if self.filename == "":
+        if not self.filename:
             QtWidgets.QMessageBox.critical(
                 self,
                 "Operation aborted",

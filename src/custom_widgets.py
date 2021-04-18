@@ -232,7 +232,6 @@ class Notification(QWidget):
         widget.move(qr.topLeft())
 
     def animate_opening(self):
-
         self._animation = QtCore.QVariantAnimation(
             self,
             startValue=0.0,
