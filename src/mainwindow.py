@@ -35,8 +35,6 @@ import pyautogui
 import pyperclip
 import qtmodern.styles
 import qtmodern.windows
-from jsonpath_ng import jsonpath
-from jsonpath_ng.ext import parse
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (QByteArray, QEasingCurve, QObject, QPoint, QPointF,
                           QPropertyAnimation, QRect, QRectF,
@@ -52,15 +50,14 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame,
                              QPushButton, QScrollArea, QSizePolicy, QSlider,
                              QSystemTrayIcon, QToolButton, QVBoxLayout,
                              QWidget)
-from youtube_dl import YoutubeDL
 
 from .custom_widgets import (AnimatedToggle, CustomFrame, CustomImageButton,
                              CustomQWidget, CustomVerticalFrame, Notification,
-                             RoundLabelImage, Spoiler)
+                             RoundLabelImage, Spoiler, DateEdit)
 from .networking import CustomNetworkManager, Sender
 from .resources import MyIcons, get_path, get_sec
 from .save_restore import guirestore, guisave
-from .youtube_scraper import get_feed_source
+from .youtube_scraper import get_feed_videos_source,Video
 # from qt_material import apply_stylesheet
 
 if __debug__:
@@ -91,17 +88,6 @@ if sys.platform == 'win32':
     myappid = u'Youtube Scraper'
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
-
-class MyLogger(object):
-    """YoutubeDL logger"""
-    def debug(self, msg):
-        pass
-
-    def warning(self, msg):
-        pass
-
-    def error(self, msg):
-        print(msg)
 
 
 class WorkerSignals(QtCore.QObject):
@@ -157,60 +143,6 @@ class Worker(QtCore.QRunnable):
 
 
 ICONS = MyIcons(BASEDIR)
-
-
-class Video():
-    """
-    Store video information for ease of use. 
-    Download it in parallel using ``start_download`` in a worker.
-    """
-    def __init__(self, id, title="", time="", author="", thumbnail="", author_thumbnail="", duration=""):
-        self.id = str(id)
-        self.url = "https://www.youtube.com/watch?v=" + self.id
-        self.title = str(title)
-        self.time = str(time)
-        self.author = str(author)
-        self.thumbnail = str(thumbnail)
-        self.author_thumbnail = str(author_thumbnail)
-        self.duration = str(duration)
-        self.is_downloaded = False
-        self.download_button: CustomImageButton = None
-
-    def start_download(self, download_dir):
-        """``download_dir`` : temp dir or user-defined."""
-        self.download_path = os.path.join(download_dir, f'{self.id}.mp3')
-        # do not set extension explicitly bc of conversion done internally
-        outtmpl = self.download_path.replace(".mp3", r".%(ext)s")
-        ydl_opts = {
-            'format': 'bestaudio',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '128',
-            }],
-            'logger': MyLogger(),
-            'progress_hooks': [self._progress_hook],
-            'outtmpl': outtmpl
-        }
-        with YoutubeDL(ydl_opts) as ydl:
-            try:
-                ydl.download([self.url])
-            except:
-                self._download_fail()
-
-    def _progress_hook(self, d):
-        # TODO conversion status
-        if d['status'] == 'finished':
-            print(f'Done downloading {self.title}. Converting...')
-            self._download_success()
-            self.is_downloaded = True
-
-    def _download_success(self):
-        self.download_button.icon = QIcon(ICONS.cloud_download_green)
-
-    def _download_fail(self):
-        self.download_button.icon = QIcon(ICONS.cloud_download_red)
-
 
 class CustomSignals(QtCore.QObject):
     """New signals should only be defined in sub-classes of QObject."""
@@ -301,7 +233,7 @@ class MainWindow(QMainWindow):
 
         #* Temporary video downloads folder
         self.temp_dir = tempfile.mkdtemp()
-        self.media_download_path=self.temp_dir # TODO user defined
+        self.media_download_path=self.temp_dir
         self.media_download_path=r"D:\Desktop\TEST_DOWNLOADS"
         self.max_video_duration=500
         print(self.temp_dir)
@@ -397,17 +329,27 @@ class MainWindow(QMainWindow):
         vLayout_0.addWidget(self.list_settings_combo)
         vLayout_0.addWidget(self.list_settings)
 
-        self.cb_delete_on_exit = QCheckBox("Delete download folder on exit",objectName="cb_delete_on_exit")
-        self.cb_notify_on_download = QCheckBox("Notify when all downloads finish",objectName="cb_delete_on_exit")
-        self.cb_use_temp_folder = QCheckBox("Use temporary folder",objectName="cb_use_temp_folder")
+        self.cb_delete_on_exit = QCheckBox("Delete download folder on exit", objectName="cb_delete_on_exit")
+        self.cb_notify_on_download = QCheckBox("Notify when all downloads finish", objectName="cb_delete_on_exit")
+        self.cb_use_temp_folder = QCheckBox("Use temporary folder", objectName="cb_use_temp_folder")
         self.media_download_path = QLineEdit(
-            r"D:\Desktop\TEST_DOWNLOADS", # TODO "Choose a different download folder",
+            r"D:\Desktop\TEST_DOWNLOADS", # TODO replace to "Choose a different download folder",
             objectName="media_download_path",
             enabled=False,
             readOnly=True,
             )
-        self.cb_use_temp_folder.toggled.connect(self.media_download_path.setEnabled
+        # TODO add import button
+        self.cb_use_temp_folder.toggled.connect(self.media_download_path.setEnabled)
+        
+        self.cb_max_video_date = QCheckBox("Set oldest video date to download", objectName="cb_max_video_date")
+        self.max_video_date_calendar = DateEdit(
+            sizePolicy=sizePolicy, 
+            enabled = False,
+            objectName="max_video_date_calendar",
             )
+        self.cb_max_video_date.toggled.connect(self.max_video_date_calendar.setEnabled)
+        self.max_video_date = self.max_video_date_calendar.dateTime().toSecsSinceEpoch()
+        print(self.max_video_date)
         
         vLayout_1 = QVBoxLayout()
         vLayout_1.addWidget(self.cb_delete_on_exit)
@@ -416,6 +358,10 @@ class MainWindow(QMainWindow):
         hLayout_1a.addWidget(self.cb_use_temp_folder)
         hLayout_1a.addWidget(self.media_download_path)
         vLayout_1.addLayout(hLayout_1a)
+        hLayout_1b=QHBoxLayout()
+        hLayout_1b.addWidget(self.cb_max_video_date)
+        hLayout_1b.addWidget(self.max_video_date_calendar)
+        vLayout_1.addLayout(hLayout_1b)
 
         main_layout.addLayout(vLayout_0)
         main_layout.addLayout(vLayout_1)
@@ -644,115 +590,26 @@ class MainWindow(QMainWindow):
     def populate_video_list(self):
         """Trigger scraping workflow"""
         self.signal.sync_icon.emit("Loading YouTube data", False)
-        json_var = self.get_yt_source_text(from_local_dir=False)
-        self.my_videos = self.get_my_videos(json_var)
+        self.update_videos_view()
         self.signal.sync_icon.emit("", True)
 
-    def get_yt_source_text(self, from_local_dir=False, save_to_local_dir=False, last_video: Video = None):
+    def update_videos_view(self):
         """Opens a new browser window to get the feed page's source code.
         \nParameters:\n   
-        ``from_local_dir`` : get data from local dir after first extraction (dev purposes)
-        ``save_to_local_dir`` : save json data to local dir (dev purposes)
         ``last_video`` : ensure ``last_video.id`` is found in source. 
         If not found, it will search until the date is ``last_video.time`` 
         """
-
-        # TODO block user keyboard unless exit hotkey
-        if not from_local_dir:
-            # url = "https://www.youtube.com/feed/subscriptions"
-            # webbrowser.open(url)
-            # pyautogui.sleep(3)
-            # pyautogui.hotkey("ctrl", "n")
-            # pyautogui.typewrite(url)
-            # pyautogui.hotkey("enter")
-            # pyautogui.sleep(1)
-            # pyautogui.press("end", presses=10, interval=1)
-            # pyautogui.hotkey("ctrl", "u")
-            # pyautogui.sleep(2)
-            # pyautogui.hotkey("ctrl", "a")
-            # pyautogui.sleep(0.1)
-            # pyautogui.hotkey("ctrl", "c")
-            # pyautogui.sleep(0.5)
-            # pyautogui.hotkey("ctrl", "w")
-            # pyautogui.sleep(0.2)
-            # pyautogui.hotkey("ctrl", "w")
-            # source = pyperclip.paste()
-            source=get_feed_source()
-            try:
-                json_var = re.findall(r'ytInitialData = (.*?);', source, re.DOTALL | re.MULTILINE)[0]
-            except Exception as e:
-                QtWidgets.QMessageBox.critical(self, 'Error', f"Could not find a valid video feed in source: {e}")
-
-        else:
-            with open(str(Path.joinpath(RUNTIME_DIR, "downloaded_source.json")), "r", encoding="utf-8") as f:
-                json_var = f.read()
-
-        # TODO find last video id in source, else change tab and scroll down
-        # until last video date | max videos to download is reached
-        if last_video is not None:
-            videoId = f'"videoId":"{last_video.id}"'
-            if not videoId in json_var:
-                pass
-            else:
-                pass
-
-        #* Optionally save the page's source
-        if not from_local_dir and save_to_local_dir:
-            with open(str(Path.joinpath(RUNTIME_DIR, "downloaded_source.json")), "a", encoding="utf-8") as f:
-                f.write(json_var)
-
-        return json.loads(json_var)
-
-    def get_my_videos(self, json_var):
-        """Extract video metadata from feed to a dictionary accessed by video ID
-        \nParameters:\n   
-        ``json_var`` : ytInitialData variable, containing rendered feed videos data"""
-
-        #TODO move to module
-        #* match all rendered video grids and get each video's data
-        jsonpath_expr = parse('*..gridRenderer..gridVideoRenderer')
-        videos_json = [match.value for match in jsonpath_expr.find(json_var)]
-
-        #* add new metadata as required and edit Video class accordingly
-        parse_strings = {
-            'id': 'videoId',
-            'title': 'title.runs[*].text',
-            'author': 'shortBylineText.runs[*].text',
-            'author_thumbnail': 'channelThumbnail.thumbnails[*].url',
-            'thumbnail': 'thumbnail.thumbnails[*].url',
-            'time': 'publishedTimeText.simpleText',
-            'duration': 'thumbnailOverlays[*].thumbnailOverlayTimeStatusRenderer.text.simpleText',
-        }
-
-        return self.create_video_instances(videos_json, parse_strings)
-
-    def create_video_instances(self, videos_json, parse_strings):
-        """Create ``Video`` instances and trigger the 
-        loading of ``Video`` into a list widget."""
-        my_videos = {}
-        videos_parsed = 0
-        parsing_limit = 30  # limit videos to show
-        for item in videos_json:
-            if parsing_limit and videos_parsed >= parsing_limit:
-                break
-            for video_attr, parse_str in parse_strings.items():
-                json_expr = parse(parse_str)  # see jsonpath_ng
-                matches = [match.value for match in json_expr.find(item)]
-                if not matches:
-                    match_attr = ""
-                else:
-                    match_attr = matches[0]
-                    # this assumes id will always be the first key
-                    if video_attr == "id":
-                        video_id = match_attr
-                        my_videos[video_id] = Video(video_id)
-                    setattr(my_videos[video_id], video_attr, match_attr)
-            videos_parsed += 1
-            #* send signal with the current video and fill the list
-            self.signal.add_listitem.emit(my_videos[video_id])
-            self.signal.start_video_download.emit(my_videos[video_id])
+        max_date = self.max_video_date if self.cb_max_video_date.isChecked() else 0
+        self.my_videos, error = get_feed_videos_source(10, max_date)
+        if error:
+            QtWidgets.QMessageBox.critical(self, 'Error', \
+                f"Could not find a valid video feed in source: {error}")
+            
+        #* send signal with the current video and fill the list
+        for id, video in self.my_videos.items():
+            self.signal.add_listitem.emit(video)
+            self.signal.start_video_download.emit(video)
             QApplication.processEvents()  # QRunnable not worth it
-        return my_videos
 
     def fill_list_widget(self, video: Video):
         """Create the item for the list widget, start downloading it's data 
@@ -760,7 +617,6 @@ class MainWindow(QMainWindow):
         item_widget = CustomQWidget(ref_parent=self)
 
         #* Add own buttons to frame
-        # TODO they're linked to ``video`` --> defined here, and not in CustomQWidget
         frameLayout = QHBoxLayout(item_widget.frame)
         frameLayout.setAlignment(QtCore.Qt.AlignTop)
 
@@ -769,6 +625,7 @@ class MainWindow(QMainWindow):
             icon_on_click=ICONS.cloud_download_white,
             icon_size=20,
             icon_max_size=30,
+            custom_icons=ICONS, # allow download icon update from Video class
         )
         self.apply_effect_on_hover(download_button)
         frameLayout.addWidget(download_button)
@@ -929,7 +786,6 @@ class MainWindow(QMainWindow):
         elif not self.was_paused:
             self.player.pause()
 
-    #TODO shortcut up down keys points to these two functions)
     def on_rewind(self):
         """"""
         if self.listVideos.currentRow() == 0: return

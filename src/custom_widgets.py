@@ -540,9 +540,11 @@ class CustomImageButton(QPushButton):
         icon_max_size: int = None,
         icon: str = None,
         icon_on_click: str = None,
+        custom_icons=None,
     ):
         super().__init__(parent)
-
+        
+        self._ICONS=custom_icons
         self._size = icon_size
         self._max_size = icon_max_size if icon_max_size is not None else icon_size
         self._icon = QtGui.QIcon(icon)
@@ -573,7 +575,12 @@ class CustomImageButton(QPushButton):
     def icon(self, icon):
         if self.icon == icon:
             return
-        self._icon = icon
+        elif icon == "download_success" and self._ICONS is not None:
+            self._icon=QIcon(self._ICONS.cloud_download_green)
+        elif icon == "download_fail" and self._ICONS is not None:
+            self._icon=QIcon(self._ICONS.cloud_download_red)
+        else:
+            self._icon = icon
         self.setIcon(self._icon)
         self.update()
 
@@ -605,3 +612,9 @@ class CustomImageButton(QPushButton):
     def leaveEvent(self, event):
         self.stop_animation()
         self.setIconSize(QSize(self._size, self._size))
+        
+class DateEdit(QtWidgets.QDateEdit):
+    def __init__(self, parent=None,**kwargs):
+        super().__init__(parent, calendarPopup=True,**kwargs)
+        today = QtCore.QDate.currentDate()
+        self.calendarWidget().setSelectedDate(today)
