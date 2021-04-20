@@ -21,6 +21,7 @@ else {
         --exclude-module numpy 
 }
 
+#######################################
 #* edit qtmodern data as per https://github.com/gmarull/qtmodern/issues/34
 
 # import importlib
@@ -31,3 +32,9 @@ else {
 # for package, files in package_imports:
 #     proot = Path(importlib.import_module(package).__file__).parent
 #     added_file.extend((proot / f, package) for f in files) #? unpack in datas: , *added_file
+
+
+#######################################
+#* to use __debug__ :
+# run with basic optimizations
+# python -O -m PyInstaller myscript.py

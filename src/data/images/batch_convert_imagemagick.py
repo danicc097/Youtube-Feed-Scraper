@@ -1,5 +1,9 @@
 # Small utility to quickly convert
 # any flat png icon to the desired colors
+# USAGE:
+# drop imgs to convert in a "to_be_converted" folder
+# not reccommended to delete these images afterwards
+# -> automatically sync new color folders
 
 import os
 import subprocess
