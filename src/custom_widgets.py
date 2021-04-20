@@ -213,7 +213,7 @@ class Notification(QWidget):
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
 
-        self.frame = CustomVerticalFrame()
+        self.frame = CustomVerticalFrame(self)
         # self.setMinimumWidth(650) #? DON'T. use frame's minimumwidth instead
         self.frame.setSizePolicy(QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Ignored))
         self.frame.setMinimumWidth(600)
@@ -221,7 +221,7 @@ class Notification(QWidget):
         self.mainLayout.addWidget(self.frame, alignment=Qt.AlignCenter)
         self.finalHeight = 150.0
         self.center(self)
-        self.center(self.frame)
+        # self.center(self.frame) #? do not apply to inner widget!
         self.show()
 
     def center(self, widget):
@@ -543,7 +543,7 @@ class CustomImageButton(QPushButton):
         custom_icons=None,
     ):
         super().__init__(parent)
-        
+
         self._ICONS=custom_icons
         self._size = icon_size
         self._max_size = icon_max_size if icon_max_size is not None else icon_size
@@ -576,9 +576,11 @@ class CustomImageButton(QPushButton):
         if self.icon == icon:
             return
         elif icon == "download_success" and self._ICONS is not None:
-            self._icon=QIcon(self._ICONS.cloud_download_green)
+            self._icon = QIcon(self._ICONS.cloud_download_green)
         elif icon == "download_fail" and self._ICONS is not None:
-            self._icon=QIcon(self._ICONS.cloud_download_red)
+            self._icon = QIcon(self._ICONS.cloud_download_red)
+        elif icon == "conversion_finished" and self._ICONS is not None:
+            self._icon = QIcon(self._ICONS.file_download_done_green)
         else:
             self._icon = icon
         self.setIcon(self._icon)
@@ -612,9 +614,9 @@ class CustomImageButton(QPushButton):
     def leaveEvent(self, event):
         self.stop_animation()
         self.setIconSize(QSize(self._size, self._size))
-        
-class DateEdit(QtWidgets.QDateEdit):
+
+class CustomDateEdit(QtWidgets.QDateEdit):
     def __init__(self, parent=None,**kwargs):
         super().__init__(parent, calendarPopup=True,**kwargs)
         today = QtCore.QDate.currentDate()
-        self.calendarWidget().setSelectedDate(today)
+        self.setDate(today)

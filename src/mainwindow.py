@@ -13,47 +13,31 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import configparser
-import copy
 import ctypes
-import datetime
-import glob
-import json
 import os
-import re
 import shutil
-import subprocess
 import sys
 import tempfile
-import threading
 import time
 import traceback
-import webbrowser
 from pathlib import Path
 
-import pyautogui
-import pyperclip
 import qtmodern.styles
 import qtmodern.windows
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import (QByteArray, QEasingCurve, QObject, QPoint, QPointF,
-                          QPropertyAnimation, QRect, QRectF,
-                          QSequentialAnimationGroup, QSize, Qt, QUrl,
-                          pyqtProperty, pyqtSignal, pyqtSlot)
-from PyQt5.QtGui import (QBrush, QColor, QFont, QIcon, QImage, QPainter,
-                         QPainterPath, QPaintEvent, QPen, QPixmap)
+from PyQt5.QtCore import (QByteArray, Qt, QUrl)
+from PyQt5.QtGui import (QColor, QFont, QIcon, QPixmap)
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer, QMediaPlaylist
-from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame,
+from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox,
                              QGraphicsDropShadowEffect, QGridLayout,
                              QHBoxLayout, QLabel, QLayout, QLineEdit,
-                             QListWidget, QListWidgetItem, QMainWindow,
-                             QPushButton, QScrollArea, QSizePolicy, QSlider,
-                             QSystemTrayIcon, QToolButton, QVBoxLayout,
+                             QListWidget, QListWidgetItem, QMainWindow, QSizePolicy, QSlider, QSpinBox,
+                             QSystemTrayIcon, QVBoxLayout,
                              QWidget)
 
 from .custom_widgets import (AnimatedToggle, CustomFrame, CustomImageButton,
                              CustomQWidget, CustomVerticalFrame, Notification,
-                             RoundLabelImage, Spoiler, DateEdit)
+                             RoundLabelImage, Spoiler, CustomDateEdit)
 from .networking import CustomNetworkManager, Sender
 from .resources import MyIcons, get_path, get_sec
 from .save_restore import guirestore, guisave
@@ -206,7 +190,7 @@ class MainWindow(QMainWindow):
         self.GUI_preferences_path = str(Path.joinpath(RUNTIME_DIR, 'GUI_preferences.ini'))
         #! CRUCIAL set objectNames, else QSettings::setValue: Empty key passed
         self.my_settings = QtCore.QSettings(self.GUI_preferences_path, QtCore.QSettings.IniFormat)
-        #* Object names not to be saved to settings
+        # Object names not to be saved to settings
         self.objects_to_exclude = ["listVideos"]
 
         #* Async download manager
@@ -234,7 +218,6 @@ class MainWindow(QMainWindow):
         #* Temporary video downloads folder
         self.temp_dir = tempfile.mkdtemp()
         self.media_download_path=self.temp_dir
-        self.media_download_path=r"D:\Desktop\TEST_DOWNLOADS"
         self.max_video_duration=500
         print(self.temp_dir)
 
@@ -331,7 +314,7 @@ class MainWindow(QMainWindow):
 
         self.cb_delete_on_exit = QCheckBox("Delete download folder on exit", objectName="cb_delete_on_exit")
         self.cb_notify_on_download = QCheckBox("Notify when all downloads finish", objectName="cb_delete_on_exit")
-        self.cb_use_temp_folder = QCheckBox("Use temporary folder", objectName="cb_use_temp_folder")
+        self.cb_user_temp_folder = QCheckBox("Use custom temporary download folder", objectName="cb_user_temp_folder")
         self.media_download_path = QLineEdit(
             r"D:\Desktop\TEST_DOWNLOADS", # TODO replace to "Choose a different download folder",
             objectName="media_download_path",
@@ -339,33 +322,47 @@ class MainWindow(QMainWindow):
             readOnly=True,
             )
         # TODO add import button
-        self.cb_use_temp_folder.toggled.connect(self.media_download_path.setEnabled)
+        self.cb_user_temp_folder.toggled.connect(self.media_download_path.setEnabled)
         
         self.cb_max_video_date = QCheckBox("Set oldest video date to download", objectName="cb_max_video_date")
-        self.max_video_date_calendar = DateEdit(
+        self.max_video_date_calendar = CustomDateEdit(
             sizePolicy=sizePolicy, 
             enabled = False,
             objectName="max_video_date_calendar",
             )
         self.cb_max_video_date.toggled.connect(self.max_video_date_calendar.setEnabled)
-        self.max_video_date = self.max_video_date_calendar.dateTime().toSecsSinceEpoch()
-        print(self.max_video_date)
+        
+        self.cb_max_video_number = QCheckBox("Set maximum videos to download", objectName="cb_max_video_number")
+        self.max_video_number_spinbox = QSpinBox(
+            sizePolicy=sizePolicy, 
+            enabled = False,
+            objectName="max_video_number_spinbox",
+            )
+        self.cb_max_video_number.toggled.connect(self.max_video_number_spinbox.setEnabled)
+        
+        hLayout_1a=QHBoxLayout()
+        hLayout_1a.addWidget(self.cb_user_temp_folder)
+        hLayout_1a.addWidget(self.media_download_path)
+        
+        hLayout_1b=QHBoxLayout()
+        hLayout_1b.addWidget(self.cb_max_video_date)
+        hLayout_1b.addWidget(self.max_video_date_calendar)
+        
+        hLayout_1c=QHBoxLayout()
+        hLayout_1c.addWidget(self.cb_max_video_number)
+        hLayout_1c.addWidget(self.max_video_number_spinbox)
         
         vLayout_1 = QVBoxLayout()
         vLayout_1.addWidget(self.cb_delete_on_exit)
         vLayout_1.addWidget(self.cb_notify_on_download)
-        hLayout_1a=QHBoxLayout()
-        hLayout_1a.addWidget(self.cb_use_temp_folder)
-        hLayout_1a.addWidget(self.media_download_path)
         vLayout_1.addLayout(hLayout_1a)
-        hLayout_1b=QHBoxLayout()
-        hLayout_1b.addWidget(self.cb_max_video_date)
-        hLayout_1b.addWidget(self.max_video_date_calendar)
         vLayout_1.addLayout(hLayout_1b)
-
+        vLayout_1.addLayout(hLayout_1c)
+        
         main_layout.addLayout(vLayout_0)
         main_layout.addLayout(vLayout_1)
-        # set any QLayout in expandable item
+        
+        #* set any QLayout in expandable item
         self.spoiler.set_content_layout(main_layout)
 
 
@@ -578,7 +575,8 @@ class MainWindow(QMainWindow):
             video = kwargs.pop('video')
             if isinstance(video, Video):
                 if get_sec(video.duration) < self.max_video_duration:
-                    yt_dl_worker = Worker(video.start_download, self.media_download_path.text())
+                    media_download_path = self.get_media_download_path()
+                    yt_dl_worker = Worker(video.start_download, media_download_path)
                     self.threadpool.start(yt_dl_worker)
                 else:
                     pass
@@ -588,28 +586,24 @@ class MainWindow(QMainWindow):
         self.start_worker("video_download", video=video)
 
     def populate_video_list(self):
-        """Trigger scraping workflow"""
+        """Trigger main scraping workflow"""
         self.signal.sync_icon.emit("Loading YouTube data", False)
-        self.update_videos_view()
-        self.signal.sync_icon.emit("", True)
-
-    def update_videos_view(self):
-        """Opens a new browser window to get the feed page's source code.
-        \nParameters:\n   
-        ``last_video`` : ensure ``last_video.id`` is found in source. 
-        If not found, it will search until the date is ``last_video.time`` 
-        """
-        max_date = self.max_video_date if self.cb_max_video_date.isChecked() else 0
-        self.my_videos, error = get_feed_videos_source(10, max_date)
+        now = time.time()
+        self.max_video_date = self.max_video_date_calendar.dateTime().toSecsSinceEpoch()
+        max_date = self.max_video_date if self.cb_max_video_date.isChecked() else now
+        max_videos = self.max_video_number_spinbox.value() if self.cb_max_video_number.isChecked() else 999
+        
+        self.my_videos, error = get_feed_videos_source(max_videos, max_date)
         if error:
             QtWidgets.QMessageBox.critical(self, 'Error', \
                 f"Could not find a valid video feed in source: {error}")
             
-        #* send signal with the current video and fill the list
         for id, video in self.my_videos.items():
             self.signal.add_listitem.emit(video)
             self.signal.start_video_download.emit(video)
             QApplication.processEvents()  # QRunnable not worth it
+            
+        self.signal.sync_icon.emit("", True)
 
     def fill_list_widget(self, video: Video):
         """Create the item for the list widget, start downloading it's data 
@@ -662,7 +656,8 @@ class MainWindow(QMainWindow):
         #* keep track of video in list widget and viceversa
         video.item_widget = item_widget
         item_widget.video = video
-        item_widget.media_path = os.path.join(self.media_download_path.text())
+        media_download_path = self.get_media_download_path()
+        item_widget.media_path = os.path.join(media_download_path)
         item_widget.video.download_button = download_button
         # item_widget.frame.layout().itemAt() #! incomprehensible later on
 
@@ -682,6 +677,13 @@ class MainWindow(QMainWindow):
         item.setSizeHint(item_widget.sizeHint())
         self.listVideos.addItem(item)
         self.listVideos.setItemWidget(item, item_widget)
+
+    def get_media_download_path(self):
+        if not self.cb_user_temp_folder.isChecked():
+            media_download_path = self.temp_dir
+        else:
+            media_download_path = self.media_download_path.text()
+        return media_download_path
 
     def on_list_item_left_click(self, item: QListWidgetItem):
         """Called when a QListWidget item is clicked."""
@@ -1102,9 +1104,10 @@ class MainWindow(QMainWindow):
         close.exec()  # Necessary for property-based API
         if close.clickedButton() == close_accept:
             self.trayIcon.setVisible(False)
-            shutil.rmtree(self.temp_dir, ignore_errors=True)
-            # TODO if custom download path and checkbox to delete:
-            # shutil.rmtree(self.media_download_path, ignore_errors=True)
+            media_download_path = self.get_media_download_path()
+            if self.cb_delete_on_exit.isChecked():
+                shutil.rmtree(media_download_path, ignore_errors=True)
+            guisave(self, self.my_settings, self.objects_to_exclude)
             event.accept()
         else:
             event.ignore()
@@ -1138,6 +1141,7 @@ app = QtWidgets.QApplication(sys.argv)
 app.setStyle('Fusion')
 app.setStyleSheet("")
 app.setApplicationName("Youtube Scraper")
+app.setOrganizationName("@danicc097")
 app_icon = QIcon(str(Path.joinpath(BASEDIR, 'data', 'main-icon.png')))
 app.setWindowIcon(app_icon)
 path = Path.joinpath(BASEDIR, 'data', 'fonts', 'Fira_Sans', 'FiraSans-Medium.ttf')

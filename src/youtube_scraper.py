@@ -1,3 +1,18 @@
+# Copyright (C) 2021 Daniel Castro
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import os
 from selenium import webdriver
 from selenium.webdriver.support.wait import WebDriverWait
@@ -6,7 +21,6 @@ from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 import re
 from youtube_dl import YoutubeDL
-from .resources import MyIcons
 from jsonpath_ng import jsonpath
 from jsonpath_ng.ext import parse
 import json
@@ -64,7 +78,8 @@ class Video():
                 self._download_fail()
 
     def _progress_hook(self, d):
-        # TODO conversion status
+        # TODO conversion status, "file_download_done" after conversion
+        
         if d['status'] == 'finished':
             print(f'Done downloading {self.title}. Converting...')
             self._download_success()
@@ -86,7 +101,7 @@ def setup_driver(user_data=None):
     os.environ["PATH"] += os.pathsep + chrome_driver_path
 
     options = webdriver.ChromeOptions()
-    options.add_argument("--no-sandbox")  # Bypass OS security model
+    # options.add_argument("--no-sandbox")  # Bypass OS security model
     options.add_argument("--disable-dev-shm-usage")  # overcome limited resource problems
     options.add_argument("--disable-extensions")
     # options.add_argument("--disable-gpu")  # applicable to windows os only
@@ -173,7 +188,6 @@ def get_video_dict(videos_json, max_videos, max_date, driver, videos_parsed):
     last_video_parsed = parse_videos([videos_json[-1]], max_videos, max_date)
     id, video = last_video_parsed.popitem()
 
-    # TODO 
     while videos_parsed < max_videos and video.time > max_date: 
         scroll_down(driver)
         time.sleep(1)
@@ -204,8 +218,9 @@ def parse_videos(videos_json, max_videos, max_date, id_stop=None):
     for item in videos_json:
         current_video = create_video_dict_item(parse_strings, my_videos, item)
         videos_parsed += 1
+        # TODO until user selected last video time or id (history button) -> qsettings
         if (
-            videos_parsed > max_videos or 
+            videos_parsed >= max_videos or 
             current_video.time < max_date or 
             current_video.id == id_stop
         ):

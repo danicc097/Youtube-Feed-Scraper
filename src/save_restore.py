@@ -2,7 +2,7 @@ import inspect
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import (
-    QAction, QCheckBox, QComboBox, QDoubleSpinBox, QGroupBox, QLineEdit, QListWidget, QRadioButton, QSpinBox, QWidget
+    QAction, QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QGroupBox, QKeySequenceEdit, QLineEdit, QListWidget, QRadioButton, QSpinBox, QWidget
 )
 
 # ? Has to be manually defined for each widget, unfortunately
@@ -85,6 +85,17 @@ def guisave(self, settings: QtCore.QSettings, objects_to_exclude=None):
                 name = obj.objectName()
                 state = obj.isChecked()
                 settings.setValue(name, state)
+                
+            if isinstance(obj, QDateEdit):
+                name = obj.objectName()
+                value = obj.date()
+                settings.setValue(name, value)
+                
+            if isinstance(obj, QKeySequenceEdit):
+                name = obj.objectName()
+                key = obj.keySequence()
+                settings.setValue(name, key)  
+                
     settings.sync()
 
 
@@ -176,7 +187,6 @@ def guirestore(self, settings: QtCore.QSettings):  # sourcery no-metrics
                 value = settings.value(name)
                 if value != "None":
                     obj.setValue(int(value))
-
             except:
                 pass
 
@@ -199,7 +209,23 @@ def guirestore(self, settings: QtCore.QSettings):  # sourcery no-metrics
                     obj.setChecked(False)
             except:
                 pass
-
+        
+        if isinstance(obj, QDateEdit):
+            try:
+                name = obj.objectName()
+                value = settings.value(name)
+                if value != "None":
+                    obj.setDate(value)
+            except:
+                pass
+        
+        if isinstance(obj, QKeySequenceEdit):
+            try:
+                name = obj.objectName()
+                key = str(settings.value(name))
+                obj.setKeySequence(key)
+            except:
+                pass
 
 def grab_GC(window, settings: QtCore.QSettings):
     """Creates a global dictionary from the values 
