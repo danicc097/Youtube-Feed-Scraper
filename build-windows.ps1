@@ -1,4 +1,8 @@
-$venvPath = "c:/Users/danic/MyPython/.venv/Scripts/Activate.ps1"
+# PIPENV_IGNORE_VIRTUALENVS = 1
+# .venv in current dir: virtualenv -p <python.exe path> .venv
+
+$myDir = $PSScriptRoot
+$venvPath = "$myDir\.venv\Scripts\Activate.ps1"
 $specPath = "YouTube-Scraper-windows.spec"
 if (Test-Path $specPath -PathType leaf) { 
     & $venvPath 

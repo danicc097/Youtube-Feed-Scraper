@@ -1,4 +1,5 @@
 .ai
+GUI_preferences.ini
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

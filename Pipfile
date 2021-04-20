@@ -1,0 +1,18 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+jsonpath-ng = "*"
+pyqt5 = "5.15.1"
+pyinstaller = "*"
+qtmodern = "*"
+youtube-dl = "*"
+selenium = "*"
+webdriver-manager = "*"
+
+[requires]
+python_version = "3.8"
