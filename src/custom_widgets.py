@@ -39,24 +39,22 @@ class Spoiler(QWidget):
         self.animationDuration = animationDuration
         self.toggleAnimation = QtCore.QParallelAnimationGroup()
         self.contentArea = QScrollArea()
-        self.headerLine = QFrame()
-        self.toggleButton = QToolButton()
         self.already_filtered = True
         if font is not None: self.setFont(font)
         mainLayout = QGridLayout()
 
-        toggleButton = self.toggleButton
-        toggleButton.setStyleSheet("QToolButton { border: none; }")
-        toggleButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        toggleButton.setArrowType(Qt.RightArrow)
-        toggleButton.setText(str(title))
-        toggleButton.setCheckable(True)
-        toggleButton.setChecked(False)
+        self.toggleButton = QToolButton()
+        self.toggleButton.setStyleSheet("QToolButton { border: none; }")
+        self.toggleButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.toggleButton.setArrowType(Qt.RightArrow)
+        self.toggleButton.setText(str(title))
+        self.toggleButton.setCheckable(True)
+        self.toggleButton.setChecked(False)
 
-        headerLine = self.headerLine
-        headerLine.setFrameShape(QFrame.HLine)
-        headerLine.setFrameShadow(QFrame.Sunken)
-        headerLine.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        self.headerLine = QFrame()
+        self.headerLine.setFrameShape(QFrame.HLine)
+        self.headerLine.setFrameShadow(QFrame.Sunken)
+        self.headerLine.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
 
         self.contentArea.setStyleSheet("QScrollArea { background-color: white; border: none; }")
         self.contentArea.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -81,13 +79,15 @@ class Spoiler(QWidget):
         def start_animation(checked):
             arrow_type = Qt.DownArrow if checked else Qt.RightArrow
             direction = QtCore.QAbstractAnimation.Forward if checked else QtCore.QAbstractAnimation.Backward
-            toggleButton.setArrowType(arrow_type)
+            self.toggleButton.setArrowType(arrow_type)
             self.toggleAnimation.setDirection(direction)
             self.toggleAnimation.start()
             self.apply_shadow_effect()
 
         self.toggleButton.clicked.connect(start_animation)
 
+            
+        
     def apply_shadow_effect(self, color=QColor(50, 50, 50), blur_radius=10, offset=2):
         effect = QGraphicsDropShadowEffect(self)
         effect.setBlurRadius(blur_radius)
@@ -103,7 +103,9 @@ class Spoiler(QWidget):
         self.setGraphicsEffect(effect)
 
     def set_content_layout(self, contentLayout: QLayout):
-        """Adds a layout ``contentLayout`` to the spoiler area"""
+        """
+        Adds a layout ``contentLayout`` to the spoiler area.
+        """
         # Not sure if this is equivalent to self.contentArea.destroy()
         self.contentArea.destroy()
         self.contentArea.setLayout(contentLayout)
@@ -121,8 +123,8 @@ class Spoiler(QWidget):
 
 
 class CustomFrame(QFrame):
-    def __init__(self, parent=None, ref_parent=None):
-        super(QFrame, self).__init__(parent)
+    def __init__(self, parent=None, ref_parent=None, **kwargs):
+        super(QFrame, self).__init__(parent, **kwargs)
         self.border_radius = 6
         self.setStyleSheet(
             "color: rgb(0, 0, 0);"  #text color
@@ -156,8 +158,8 @@ class CustomFrame(QFrame):
 
 
 class CustomVerticalFrame(QFrame):
-    def __init__(self, parent=None, ref_parent=None):
-        super(QFrame, self).__init__(parent)
+    def __init__(self, parent=None, ref_parent=None, **kwargs):
+        super(QFrame, self).__init__(parent, **kwargs)
 
         self.border_radius = 15
         self.setStyleSheet(
@@ -206,8 +208,8 @@ class CustomVerticalFrame(QFrame):
 
 
 class Notification(QWidget):
-    def __init__(self, parent=None, ref_parent=None):
-        super(QWidget, self).__init__(parent=None)
+    def __init__(self, parent=None, ref_parent=None, **kwargs):
+        super(QWidget, self).__init__(parent=None, **kwargs)
         self.ref_parent = ref_parent
         # popup will hide when clicked outside
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
@@ -220,13 +222,15 @@ class Notification(QWidget):
         self.mainLayout = QVBoxLayout(self)
         self.mainLayout.addWidget(self.frame, alignment=Qt.AlignCenter)
         self.finalHeight = 150.0
-        self.center(self)
+        self.center(self) 
         # self.center(self.frame) #? do not apply to inner widget!
         self.show()
 
     def center(self, widget):
         qr = widget.frameGeometry()
-        cp = QApplication.primaryScreen().geometry().center()
+        #? the widget is centered based on the window, not `primaryScreen`
+        #? as with the window itself
+        cp = QApplication.activeWindow().geometry().center()
         cp.setY(cp.y() + self.finalHeight)  # offset
         qr.moveCenter(cp)
         widget.move(qr.topLeft())
@@ -253,8 +257,8 @@ class Notification(QWidget):
 
 class CustomQWidget(QWidget):
     """QWidget to be added as an item's widget."""
-    def __init__(self, parent=None, ref_parent=None, base_color=QtGui.QColor(235, 235, 235)):
-        super().__init__(parent)
+    def __init__(self, parent=None, ref_parent=None, base_color=QtGui.QColor(235, 235, 235), **kwargs):
+        super().__init__(parent, **kwargs)
         self.ref_parent = ref_parent
         self.shadow_effects = {}
         self.shadow_effects_counter = 0
@@ -355,8 +359,16 @@ class CustomQWidget(QWidget):
 class RoundLabelImage(QLabel):
     """Based on:
     https://stackoverflow.com/questions/50819033/qlabel-with-image-in-round-shape/50821539"""
-    def __init__(self, path="", size=50, border_width=0, border_color=None, antialiasing=True):
-        super().__init__()
+    def __init__(
+        self,
+        path="",
+        size=50,
+        border_width=0,
+        border_color=None,
+        antialiasing=True,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
         self._size = size
         self._border_width = border_width
         self._border_color = border_color
@@ -541,8 +553,9 @@ class CustomImageButton(QPushButton):
         icon: str = None,
         icon_on_click: str = None,
         custom_icons=None,
+        **kwargs,
     ):
-        super().__init__(parent)
+        super().__init__(parent, **kwargs)
 
         self._ICONS=custom_icons
         self._size = icon_size
@@ -620,3 +633,27 @@ class CustomDateEdit(QtWidgets.QDateEdit):
         super().__init__(parent, calendarPopup=True,**kwargs)
         today = QtCore.QDate.currentDate()
         self.setDate(today)
+        
+        
+class CustomListWidget(QtWidgets.QListWidget):
+    def __init__(self, parent=None,**kwargs):
+        super().__init__(parent,**kwargs)  
+        
+    # def event(self, event):
+    #     if (event.type() == QtCore.QEvent.KeyPress) and (
+    #         event.key() == Qt.Key_Up or
+    #         event.key() == Qt.Key_Down
+    #         ):
+    #         print('Parent handling Up')
+    #         return True
+    #     return QWidget.event(self, event)
+
+    def eventFilter(self, widget, event):
+        if (event.type() == QtCore.QEvent.KeyPress) and (
+            event.key() == Qt.Key_Up or
+            event.key() == Qt.Key_Down
+            ):
+            print('Sending space event to parent...')
+            self.event(event)
+            return True
+        return super().eventFilter(widget, event)

@@ -51,17 +51,17 @@ class CustomNetworkManager(QObject):
     """QNetworkAccessManager wrapper to handle async downloads. \n
     Usage:
     ------
-        ``foo = CustomNetworkManager()`` \n
-        ``foo.downloaded.connect(lambda: global_client_loader())`` \n
-        original sender and data are passed 
-        
-        ``foo.start_download(QUrl(my_url), sender)`` 
-        execution continues. The download is tied to ``sender``.
-        
-        in main thread:
-        ``def global_client_loader(sender,byte_array):`` \n
-            ``sender.sender_name == "some_name":``
-               ``do_stuff(sender,byte_array)``
+    ``foo = CustomNetworkManager()`` \n
+    ``foo.downloaded.connect(lambda: global_client_loader())`` \n
+    original sender and data are passed 
+    
+    ``foo.start_download(QUrl(my_url), sender)`` 
+    execution continues. The download is tied to ``sender``.
+    
+    in main thread:
+    ``def global_client_loader(sender,byte_array):`` \n
+        ``sender.sender_name == "some_name":``
+            ``do_stuff(sender,byte_array)``
     """
     downloaded = pyqtSignal(QObject, QByteArray)
 

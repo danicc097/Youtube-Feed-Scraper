@@ -24,7 +24,7 @@ from youtube_dl import YoutubeDL
 from jsonpath_ng import jsonpath
 from jsonpath_ng.ext import parse
 import json
-
+from sys import platform
 
 class MyLogger(object):
     """YoutubeDL logger"""
@@ -43,20 +43,22 @@ class Video():
     Store video information for ease of use. 
     Download it in parallel using ``start_download`` in a worker.
     """
-    def __init__(self, id, title="", time="", author="", thumbnail="", author_thumbnail="", duration=""):
+    def __init__(self, id, title="", time=time.time(), author="", thumbnail="", author_thumbnail="", duration=""):
         self.id               = str(id)
         self.url              = "https://www.youtube.com/watch?v=" + self.id
         self.title            = str(title)
-        self.time             = str(time)
+        self.time             = int(time)
         self.author           = str(author)
         self.thumbnail        = str(thumbnail)
         self.author_thumbnail = str(author_thumbnail)
         self.duration         = str(duration)
+        self.download_path    = None
         self.is_downloaded    = False
         self.download_button  = None
 
     def start_download(self, download_dir):
         """``download_dir`` : temp dir or user-defined."""
+        self._download_dir = download_dir
         self.download_path = os.path.join(download_dir, f'{self.id}.mp3')
         # do not set extension explicitly bc of conversion done internally
         outtmpl = self.download_path.replace(".mp3", r".%(ext)s")
@@ -78,7 +80,9 @@ class Video():
                 self._download_fail()
 
     def _progress_hook(self, d):
-        # TODO conversion status, "file_download_done" after conversion
+        # TODO more accurate conversion status after conversion:
+        # download_button.icon = "file_download_done"
+        # ? would require external FFmpeg usage
         
         if d['status'] == 'finished':
             print(f'Done downloading {self.title}. Converting...')
@@ -87,6 +91,12 @@ class Video():
 
     def _download_success(self):
         self.download_button.icon = "download_success"
+        
+        # #? 'postprocessors' key to convert everything to mp3 is reccommended instead 
+        # #? windows: see qmedia formats supported through DirectShow
+        # for dirpath, dirnames, files in os.walk(self._download_dir):
+        #     matching_video = [os.path.join(dirpath, file) for file in files if self.id in file]
+        #     self.download_path = matching_video[0]
 
     def _download_fail(self):
         self.download_button.icon = "download_fail"
@@ -94,7 +104,10 @@ class Video():
 
 def setup_driver(user_data=None):
     if user_data is None:
-        user_data = os.path.expanduser('~') + r'\AppData\Local\Google\Chrome\User Data'
+        if platform == 'win32':
+            user_data = os.path.expanduser('~') + r'\AppData\Local\Google\Chrome\User Data'
+        elif platform == 'linux':
+            user_data = os.path.expanduser('~') + r'/.config/google-chrome'
 
     #? automatic driver detection
     chrome_driver_path = ChromeDriverManager().install()
@@ -119,7 +132,7 @@ def scroll_down(driver):
 
 
 def get_timestamp_from_relative_time(time_string):
-    """Return a timestamp from a relative ``time_string``, e.g. ``3 minutes ago```."""
+    """Return a timestamp from a relative ``time_string``, e.g. ``3 minutes ago``."""
     now = time.time()
     if re.findall('[0-9]+', time_string):
         relative_time = int(re.findall('[0-9]+', time_string)[0])
@@ -139,7 +152,7 @@ def get_timestamp_from_relative_time(time_string):
             timestamp = now
     else:
         timestamp = now
-    return timestamp
+    return int(timestamp)
 
 
 def get_videos_metadata(source):
@@ -160,8 +173,15 @@ def get_videos_metadata(source):
     
     return videos_json, None
 
-def get_feed_videos_source(max_videos, max_date, last_video_id=None):
+source = None
+
+def get_videos_from_feed(max_videos, max_date, last_video_id=None):
+    """
+    Return a dictionary of ``Video`` instances accessed by ``id``.
+    """
     #TODO use user_data folder from GUI if available
+    global source
+    
     driver = setup_driver(user_data=None)
     print('\nRETRIEVING YOUTUBE DATA...\n')
 
@@ -179,16 +199,24 @@ def get_feed_videos_source(max_videos, max_date, last_video_id=None):
         
     my_videos = get_video_dict(videos_json, max_videos, max_date, driver, videos_parsed)
             
-    driver.close()
+    # driver.close()
+    driver.quit()
 
     return my_videos, error
 
+
 def get_video_dict(videos_json, max_videos, max_date, driver, videos_parsed):
+    """
+    
+    """
     #* get last video information
+    global source
+    
     last_video_parsed = parse_videos([videos_json[-1]], max_videos, max_date)
     id, video = last_video_parsed.popitem()
 
     while videos_parsed < max_videos and video.time > max_date: 
+        print("\nScrolling down.\n")
         scroll_down(driver)
         time.sleep(1)
         source = driver.page_source
@@ -197,6 +225,10 @@ def get_video_dict(videos_json, max_videos, max_date, driver, videos_parsed):
         videos_parsed = len(videos_json)
         last_video_parsed = parse_videos([videos_json[-1]], max_videos, max_date)
         id, video = last_video_parsed.popitem()
+        
+    # with open("test_youtube_page_source.txt","a+",encoding="utf8") as f:
+    #     # global source
+    #     f.write(source)
         
     return parse_videos(videos_json, max_videos, max_date, id_stop=id)
 
@@ -219,6 +251,7 @@ def parse_videos(videos_json, max_videos, max_date, id_stop=None):
         current_video = create_video_dict_item(parse_strings, my_videos, item)
         videos_parsed += 1
         # TODO until user selected last video time or id (history button) -> qsettings
+        print(f"current_video.time: {current_video.time} and max_date: {max_date}")
         if (
             videos_parsed >= max_videos or 
             current_video.time < max_date or 
@@ -231,7 +264,7 @@ def parse_videos(videos_json, max_videos, max_date, id_stop=None):
     return my_videos
 
 def create_video_dict_item(parse_strings, my_videos, item):
-    """Create a new ``Video`` dict item, accessed by ``id``."""
+    """Create a new ``Video`` value, accessed by ``id``."""
     for video_attr, parse_str in parse_strings.items():
         json_expr = parse(parse_str)
         # see jsonpath_ng

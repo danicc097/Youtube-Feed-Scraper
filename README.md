@@ -2,6 +2,7 @@
 
 # UNDER DEV
 
+
 <p align="center">
   <br>
   <a href="https://github.com/danicc097/Youtube-Feed-Scraper/blob/main/LICENSE"><img alt="undefined" src=".github/GPLv3_badge.svg"></a>
@@ -37,10 +38,12 @@ The main motivation is that, among other tools, I often use Youtube to find new 
 📝 Packages inside `pipfile`. They will be installed in the virtual environment with `pipenv install`.
 
 To get started:
+
 1. Clone the repo: `git clone https://github.com/danicc097/Youtube-Feed-Scraper.git`
+2. Create a virtual environment for the project with `pipenv shell`
 2. Install the required packages and corresponding versions with `pipenv install`
 3. Run the main program file with `pipenv run python main.py`
-4. To distribute using `PyInstaller`, the project can easily be built with `build-windows.ps1` or `build-linux.sh` after activating your virtual environment.
+4. To distribute using `PyInstaller`, the project can easily be built with `build-windows.ps1` or `build-linux.sh`.
 
 ## Features
 
@@ -48,9 +51,9 @@ TBD
 
 ## WIPs
 
-☑️ Include WIPs  
-⬜ Integrated browser
-⬜ Youtube API
+☑️ Include WIPs 
+⬜ Integrated browser 
+⬜ Youtube API 
 
 ---
 [GPLv3 Licensed](https://www.gnu.org/licenses/gpl-3.0.en.html) ([LICENSE](https://github.com/danicc097/Youtube-Feed-Scraper/LICENSE)). © [Daniel Castro](https://github.com/danicc097), 2021.

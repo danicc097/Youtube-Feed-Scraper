@@ -1,5 +1,6 @@
-.ai
+*.ai
 GUI_preferences.ini
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

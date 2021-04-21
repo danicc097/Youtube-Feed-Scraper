@@ -37,7 +37,7 @@ def get_sec(my_time):
         except:
             h=0
             m, s = my_time.split(':')
-    return int(h) * 3600 + int(m) * 60 + int(s)
+        return int(h) * 3600 + int(m) * 60 + int(s)
 
 class MyIcons(object):
     """Icons to be initialized in QMainWindow"""
@@ -46,7 +46,7 @@ class MyIcons(object):
         self.set_my_attributes(BASEDIR)
 
     def set_my_attributes(self, BASEDIR):
-        self.main_icon          = str(Path.joinpath(BASEDIR, 'data', 'main-icon.png'))
+        self.main_icon          = str(Path.joinpath(BASEDIR, 'data', 'main_icon.png'))
         self.playback_play      = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png'))
         self.playback_pause     = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_pause.png'))
         self.playback_ff        = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_ff.png'))
