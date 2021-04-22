@@ -25,9 +25,12 @@ from jsonpath_ng import jsonpath
 from jsonpath_ng.ext import parse
 import json
 from sys import platform
+from typing import List, Set, Dict, Optional, Any, Tuple
 
 class MyLogger(object):
-    """YoutubeDL logger"""
+    """
+    YoutubeDL logger
+    """
     def debug(self, msg):
         pass
 
@@ -127,8 +130,7 @@ def setup_driver(user_data=None):
 
 
 def scroll_down(driver):
-    html = driver.find_element_by_tag_name('html')
-    html.send_keys(Keys.END)
+    driver.find_element_by_tag_name('html').send_keys(Keys.END)
 
 
 def get_timestamp_from_relative_time(time_string):
@@ -175,11 +177,16 @@ def get_videos_metadata(source):
 
 source = None
 
-def get_videos_from_feed(max_videos, max_date, last_video_id=None):
+def get_videos_from_feed(max_videos, max_date, last_video_id=None) -> Tuple[Dict[str, Video], Any]: 
     """
     Return a dictionary of ``Video`` instances accessed by ``id``.
     """
-    #TODO use user_data folder from GUI if available
+    #TODO refactor to class.
+    #TODO quit self.driver from mainwindow method
+    #TODO on scrape button press try: quit self.driver
+    #TODO new stop scraping button 
+    
+    
     global source
     
     driver = setup_driver(user_data=None)
@@ -211,26 +218,30 @@ def get_video_dict(videos_json, max_videos, max_date, driver, videos_parsed):
     """
     #* get last video information
     global source
-    
+    _videos_json = videos_json
+    _videos_parsed = videos_parsed
     last_video_parsed = parse_videos([videos_json[-1]], max_videos, max_date)
     id, video = last_video_parsed.popitem()
 
-    while videos_parsed < max_videos and video.time > max_date: 
+    while _videos_parsed < max_videos and video.time > max_date:  #it's using the same video every time
+        print(f"video.time is {video.time}")
+        print(f"videos_parsed are {_videos_parsed}")
         print("\nScrolling down.\n")
         scroll_down(driver)
-        time.sleep(1)
+        # time.sleep(1)
+        # TODO DEBUG: source is correct (growing).  _videos_parsed and time doesnt cahnge
         source = driver.page_source
-        videos_json, error = get_videos_metadata(source)
+        _videos_json, error = get_videos_metadata(source)
         if error: return 
-        videos_parsed = len(videos_json)
-        last_video_parsed = parse_videos([videos_json[-1]], max_videos, max_date)
+        _videos_parsed = len(_videos_json)
+        last_video_parsed = parse_videos([_videos_json[-1]], max_videos, max_date)
         id, video = last_video_parsed.popitem()
         
     # with open("test_youtube_page_source.txt","a+",encoding="utf8") as f:
     #     # global source
     #     f.write(source)
         
-    return parse_videos(videos_json, max_videos, max_date, id_stop=id)
+    return parse_videos(_videos_json, max_videos, max_date, id_stop=id)
 
 
 def parse_videos(videos_json, max_videos, max_date, id_stop=None):
@@ -251,6 +262,9 @@ def parse_videos(videos_json, max_videos, max_date, id_stop=None):
         current_video = create_video_dict_item(parse_strings, my_videos, item)
         videos_parsed += 1
         # TODO until user selected last video time or id (history button) -> qsettings
+        
+        #TODO FIX uses the same current_video every time it scrolls
+        
         print(f"current_video.time: {current_video.time} and max_date: {max_date}")
         if (
             videos_parsed >= max_videos or 

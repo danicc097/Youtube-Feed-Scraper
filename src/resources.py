@@ -20,7 +20,9 @@ import sys
 
 
 def get_path(relative_path):
-    """Use correct absolute paths for bundled and dev versions."""
+    """
+    Use correct absolute paths for bundled and dev versions.
+    """
     rel_path = Path(relative_path)
     dev_base_path = Path(__file__).resolve().parent.parent
     #* dev_base_path is used by default if _MEIPASS doesn't exist
@@ -30,7 +32,9 @@ def get_path(relative_path):
 
 
 def get_sec(my_time):
-    """Return seconds from hh:mm:ss format."""
+    """
+    Return seconds from hh:mm:ss format.
+    """
     if ":" in my_time:
         try:
             h, m, s = my_time.split(':')
@@ -40,12 +44,12 @@ def get_sec(my_time):
         return int(h) * 3600 + int(m) * 60 + int(s)
 
 class MyIcons(object):
-    """Icons to be initialized in QMainWindow"""
+    """
+    Icons to be initialized in QMainWindow.
+    """
     def __init__(self, BASEDIR) -> None:
         super().__init__()
-        self.set_my_attributes(BASEDIR)
-
-    def set_my_attributes(self, BASEDIR):
+        
         self.main_icon          = str(Path.joinpath(BASEDIR, 'data', 'main_icon.png'))
         self.playback_play      = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_play.png'))
         self.playback_pause     = str(Path.joinpath(BASEDIR, 'data', 'images', 'playback_pause.png'))

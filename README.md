@@ -51,9 +51,9 @@ TBD
 
 ## WIPs
 
-☑️ Include WIPs 
-⬜ Integrated browser 
-⬜ Youtube API 
+☑️ Include WIPs \
+⬜ Integrated browser \
+⬜ Youtube API
 
 ---
 [GPLv3 Licensed](https://www.gnu.org/licenses/gpl-3.0.en.html) ([LICENSE](https://github.com/danicc097/Youtube-Feed-Scraper/LICENSE)). © [Daniel Castro](https://github.com/danicc097), 2021.

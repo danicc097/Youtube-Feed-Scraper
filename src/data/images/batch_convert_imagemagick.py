@@ -13,7 +13,10 @@ BASEDIR = os.path.dirname(__file__)
 
 
 def command_run(cmd):
-    completed = subprocess.run(["powershell", "-Command", cmd], capture_output=True)
+    """
+    Execute powershell command string.
+    """
+    completed = subprocess.run(["powershell", "-Command", str(cmd)], capture_output=True)
     if completed.returncode != 0:
         print("An error occured: %s" % completed.stderr)
     else:

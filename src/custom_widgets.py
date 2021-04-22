@@ -18,7 +18,7 @@ from PyQt5.QtCore import (
     QByteArray, QEasingCurve, QObject, QPoint, QPointF, QPropertyAnimation, QRect, QRectF, QSequentialAnimationGroup,
     QSize, QTimer, QVariantAnimation, Qt, QUrl, pyqtProperty, pyqtSignal, pyqtSlot
 )
-from PyQt5.QtGui import (QBrush, QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPaintEvent, QPen, QPixmap)
+from PyQt5.QtGui import (QBrush, QColor, QFont, QIcon, QImage, QMouseEvent, QPainter, QPainterPath, QPaintEvent, QPen, QPixmap)
 from PyQt5.QtNetwork import (QNetworkAccessManager, QNetworkReply, QNetworkRequest)
 from PyQt5.QtWidgets import (
     QApplication, QCheckBox, QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout, QLabel, QLayout,
@@ -28,12 +28,12 @@ from PyQt5.QtWidgets import (
 
 
 class Spoiler(QWidget):
+    """
+    Collapsable and expandable section.
+    Based on:
+    http://stackoverflow.com/questions/32476006/how-to-make-an-expandable-collapsable-section-widget-in-qt
+    """
     def __init__(self, parent=None, title='', animationDuration=300, ref_parent=None, font=None):
-        """
-        Collapsable and expandable section.
-        Based on:
-        http://stackoverflow.com/questions/32476006/how-to-make-an-expandable-collapsable-section-widget-in-qt
-        """
         super(Spoiler, self).__init__(parent=parent)
         self.ref_parent = ref_parent
         self.animationDuration = animationDuration
@@ -76,7 +76,7 @@ class Spoiler(QWidget):
         mainLayout.addWidget(self.contentArea, row, 0, 1, 3)
         self.setLayout(mainLayout)
 
-        def start_animation(checked):
+        def _start_animation(checked):
             arrow_type = Qt.DownArrow if checked else Qt.RightArrow
             direction = QtCore.QAbstractAnimation.Forward if checked else QtCore.QAbstractAnimation.Backward
             self.toggleButton.setArrowType(arrow_type)
@@ -84,11 +84,17 @@ class Spoiler(QWidget):
             self.toggleAnimation.start()
             self.apply_shadow_effect()
 
-        self.toggleButton.clicked.connect(start_animation)
+        self.toggleButton.clicked.connect(_start_animation)
 
             
         
     def apply_shadow_effect(self, color=QColor(50, 50, 50), blur_radius=10, offset=2):
+        """
+        Same widget graphic effect instance can't be used more than once
+        else it's removed from the first widget. Workaround using a dict:\n
+        Notes: when applied to a ``CustomImageButton``, this effect will add a rounded rect 
+        background. See 'CustomImageButton_example.png' for reference
+        """
         effect = QGraphicsDropShadowEffect(self)
         effect.setBlurRadius(blur_radius)
         effect.setColor(color)
@@ -123,6 +129,9 @@ class Spoiler(QWidget):
 
 
 class CustomFrame(QFrame):
+    """
+    Material design inspired styled frame.
+    """
     def __init__(self, parent=None, ref_parent=None, **kwargs):
         super(QFrame, self).__init__(parent, **kwargs)
         self.border_radius = 6
@@ -158,6 +167,9 @@ class CustomFrame(QFrame):
 
 
 class CustomVerticalFrame(QFrame):
+    """
+    Material design inspired styled frame.
+    """
     def __init__(self, parent=None, ref_parent=None, **kwargs):
         super(QFrame, self).__init__(parent, **kwargs)
 
@@ -208,6 +220,9 @@ class CustomVerticalFrame(QFrame):
 
 
 class Notification(QWidget):
+    """
+    Transparent widget to be used as a container.
+    """
     def __init__(self, parent=None, ref_parent=None, **kwargs):
         super(QWidget, self).__init__(parent=None, **kwargs)
         self.ref_parent = ref_parent
@@ -222,20 +237,24 @@ class Notification(QWidget):
         self.mainLayout = QVBoxLayout(self)
         self.mainLayout.addWidget(self.frame, alignment=Qt.AlignCenter)
         self.finalHeight = 150.0
-        self.center(self) 
-        # self.center(self.frame) #? do not apply to inner widget!
+        self.center(self) # center the container
+        # self.center(self.frame) #? do not apply to any inner widget!
         self.show()
 
     def center(self, widget):
+        """
+        Centers a widget based on the current active window.
+        """
         qr = widget.frameGeometry()
-        #? the widget is centered based on the window, not `primaryScreen`
-        #? as with the window itself
         cp = QApplication.activeWindow().geometry().center()
         cp.setY(cp.y() + self.finalHeight)  # offset
         qr.moveCenter(cp)
         widget.move(qr.topLeft())
 
     def animate_opening(self):
+        """
+        Starts the notification widget animation.
+        """
         self._animation = QtCore.QVariantAnimation(
             self,
             startValue=0.0,
@@ -244,19 +263,22 @@ class Notification(QWidget):
             valueChanged=self.on_valueChanged,
         )
         self._animation.setEasingCurve(QEasingCurve.InCubic)
-        self.start_animation()
-
-    def start_animation(self):
+        
         if self._animation.state() != QtCore.QAbstractAnimation.Running:
             self._animation.start()
 
     @QtCore.pyqtSlot(QtCore.QVariant)
     def on_valueChanged(self, value):
+        """
+        Updates animation.
+        """
         self.frame.setFixedSize(self.frame.width(), value)
 
 
 class CustomQWidget(QWidget):
-    """QWidget to be added as an item's widget."""
+    """
+    QWidget to be added as an item's widget (e.g. a ``QListWidgetItem``'s widget).
+    """
     def __init__(self, parent=None, ref_parent=None, base_color=QtGui.QColor(235, 235, 235), **kwargs):
         super().__init__(parent, **kwargs)
         self.ref_parent = ref_parent
@@ -326,8 +348,12 @@ class CustomQWidget(QWidget):
         painter.setClipPath(painter_path)
 
     def apply_shadow_effect(self, widget: QWidget):
-        """Same widget graphic effect instance can't be used more than once
-        else it's removed from the first widget. Workaround using a dict:"""
+        """
+        Same widget graphic effect instance can't be used more than once
+        else it's removed from the first widget. Workaround using a dict:\n
+        Notes: when applied to a ``CustomImageButton``, this effect will add a rounded rect 
+        background. See 'CustomImageButton_example.png' for reference
+        """
         self.shadow_effects[self.shadow_effects_counter] = QGraphicsDropShadowEffect(self)
         self.shadow_effects[self.shadow_effects_counter].setBlurRadius(10)
         self.shadow_effects[self.shadow_effects_counter].setColor(QtGui.QColor(50, 50, 50))
@@ -336,10 +362,16 @@ class CustomQWidget(QWidget):
         self.shadow_effects_counter += 1
 
     def setTextUp(self, text):
+        """
+        Adds a title up next to thumbnail.
+        """
         self.textUpQLabel.setText(text)
         self.textUpQLabel.setSizePolicy(QSizePolicy(QSizePolicy.Minimum, QSizePolicy.MinimumExpanding))
 
     def set_thumbnail(self, img: QPixmap):
+        """
+        Sets an image as thumbnail.
+        """
         # img = QPixmap(img)
         # important to use a SmoothTransformation
         thumbnail_width = self.thumbnailQLabel.width()
@@ -357,8 +389,10 @@ class CustomQWidget(QWidget):
 
 
 class RoundLabelImage(QLabel):
-    """Based on:
-    https://stackoverflow.com/questions/50819033/qlabel-with-image-in-round-shape/50821539"""
+    """
+    Based on:
+    https://stackoverflow.com/questions/50819033/qlabel-with-image-in-round-shape/50821539
+    """
     def __init__(
         self,
         path="",
@@ -376,9 +410,13 @@ class RoundLabelImage(QLabel):
         self.setFixedSize(size, size)
         self._path = path
         if path != "":
+            #* use a local path to load the image if available
             self.set_round_label(from_local_path=True)
 
     def set_round_label(self, data: QByteArray = None, from_local_path=False):
+        """
+        Draws a round label using a given ``data`` response.
+        """
         if from_local_path:
             self.source = QPixmap(self._path)
         else:
@@ -412,131 +450,9 @@ class RoundLabelImage(QLabel):
         painter = None
         self.setPixmap(self.target)
 
-
-class AnimatedToggle(QCheckBox):
-    """Based on https://www.learnpyqt.com/tutorials/qpropertyanimation/"""
-    _transparent_pen = QPen(Qt.transparent)
-    _light_grey_pen = QPen(Qt.lightGray)
-
-    def __init__(
-        self,
-        parent=None,
-        bar_color=Qt.gray,
-        checked_color="#00B0FF",
-        handle_color=Qt.white,
-        pulse_unchecked_color="#44999999",
-        pulse_checked_color="#4400B0EE"
-    ):
-        super().__init__(parent)
-
-        self._bar_brush = QBrush(bar_color)
-        self._bar_checked_brush = QBrush(QColor(checked_color).lighter())
-
-        self._handle_brush = QBrush(handle_color)
-        self._handle_checked_brush = QBrush(QColor(checked_color))
-
-        self._pulse_unchecked_animation = QBrush(QColor(pulse_unchecked_color))
-        self._pulse_checked_animation = QBrush(QColor(pulse_checked_color))
-
-        # Setup the rest of the widget.
-        self.setContentsMargins(8, 0, 8, 0)
-        self._handle_position = 0
-
-        self._pulse_radius = 0
-
-        self.animation = QPropertyAnimation(self, b"handle_position", self)
-        self.animation.setEasingCurve(QEasingCurve.InOutCubic)
-        self.animation.setDuration(200)  # time in ms
-
-        self.pulse_anim = QPropertyAnimation(self, b"pulse_radius", self)
-        self.pulse_anim.setDuration(350)  # time in ms
-        self.pulse_anim.setStartValue(10)
-        self.pulse_anim.setEndValue(20)
-
-        self.animations_group = QSequentialAnimationGroup()
-        self.animations_group.addAnimation(self.animation)
-        self.animations_group.addAnimation(self.pulse_anim)
-
-        self.stateChanged.connect(self.setup_animation)
-
-    def sizeHint(self):
-        return QSize(58, 45)
-
-    def hitButton(self, pos: QPoint):
-        return self.contentsRect().contains(pos)
-
-    @pyqtSlot(int)
-    def setup_animation(self, value):
-        self.animations_group.stop()
-        if value:
-            self.animation.setEndValue(1)
-        else:
-            self.animation.setEndValue(0)
-        self.animations_group.start()
-
-    def paintEvent(self, e: QPaintEvent):
-
-        contRect = self.contentsRect()
-        handleRadius = round(0.24 * contRect.height())
-
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-
-        p.setPen(self._transparent_pen)
-        barRect = QRectF(0, 0, contRect.width() - handleRadius, 0.40 * contRect.height())
-        barRect.moveCenter(contRect.center())
-        rounding = barRect.height() / 2
-
-        # the handle will move along this line
-        trailLength = contRect.width() - 2 * handleRadius
-
-        xPos = contRect.x() + handleRadius + trailLength * self._handle_position
-
-        if self.pulse_anim.state() == QPropertyAnimation.Running:
-            p.setBrush(self._pulse_checked_animation if self.isChecked() else self._pulse_unchecked_animation)
-            p.drawEllipse(QPointF(xPos, barRect.center().y()), self._pulse_radius, self._pulse_radius)
-
-        if self.isChecked():
-            p.setBrush(self._bar_checked_brush)
-            p.drawRoundedRect(barRect, rounding, rounding)
-            p.setBrush(self._handle_checked_brush)
-
-        else:
-            p.setBrush(self._bar_brush)
-            p.drawRoundedRect(barRect, rounding, rounding)
-            p.setPen(self._light_grey_pen)
-            p.setBrush(self._handle_brush)
-
-        p.drawEllipse(QPointF(xPos, barRect.center().y()), handleRadius, handleRadius)
-
-        p.end()
-
-    @pyqtProperty(float)
-    def handle_position(self):
-        return self._handle_position
-
-    @handle_position.setter
-    def handle_position(self, pos):
-        """change the property
-        we need to trigger QWidget.update() method, either by:
-            1- calling it here [ what we doing ].
-            2- connecting the QPropertyAnimation.valueChanged() signal to it.
-        """
-        self._handle_position = pos
-        self.update()
-
-    @pyqtProperty(float)
-    def pulse_radius(self):
-        return self._pulse_radius
-
-    @pulse_radius.setter
-    def pulse_radius(self, pos):
-        self._pulse_radius = pos
-        self.update()
-
-
 class CustomImageButton(QPushButton):
-    """Replaces the button frame with an image and custom animation. 
+    """
+    Replaces the button frame with an image and custom animation. 
     Same principle applies to ``QLabel``, etc.\n
     Parameters
     ----------
@@ -599,16 +515,19 @@ class CustomImageButton(QPushButton):
         self.setIcon(self._icon)
         self.update()
 
-    def start_animation(self):
+    def _start_animation(self):
         if self._animation.state() != QtCore.QAbstractAnimation.Running:
             self._animation.start()
 
-    def stop_animation(self):
+    def _stop_animation(self):
         if self._animation.state() == QtCore.QAbstractAnimation.Running:
             self._animation.stop()
 
     @QtCore.pyqtSlot(QtCore.QVariant)
     def on_valueChanged(self, value):
+        """
+        Updates animation.
+        """
         icon_size = self.iconSize().width()
         if icon_size < self._max_size:
             self.setIconSize(self.iconSize() * value)
@@ -622,13 +541,16 @@ class CustomImageButton(QPushButton):
         self.setIcon(self._icon)
 
     def enterEvent(self, event):
-        self.start_animation()
+        self._start_animation()
 
     def leaveEvent(self, event):
-        self.stop_animation()
+        self._stop_animation()
         self.setIconSize(QSize(self._size, self._size))
 
 class CustomDateEdit(QtWidgets.QDateEdit):
+    """
+    Date selection widget with current date predefined.
+    """
     def __init__(self, parent=None,**kwargs):
         super().__init__(parent, calendarPopup=True,**kwargs)
         today = QtCore.QDate.currentDate()
@@ -636,8 +558,13 @@ class CustomDateEdit(QtWidgets.QDateEdit):
         
         
 class CustomListWidget(QtWidgets.QListWidget):
-    def __init__(self, parent=None,**kwargs):
+    """
+    ``QListWidget`` with disabled key presses to avoid conflicts.
+    """
+    def __init__(self, parent=None, ref_parent=None, **kwargs):
         super().__init__(parent,**kwargs)  
+        self.viewport().installEventFilter(ref_parent)
+        self.installEventFilter(ref_parent)
         
     # def event(self, event):
     #     if (event.type() == QtCore.QEvent.KeyPress) and (
@@ -648,12 +575,11 @@ class CustomListWidget(QtWidgets.QListWidget):
     #         return True
     #     return QWidget.event(self, event)
 
-    def eventFilter(self, widget, event):
-        if (event.type() == QtCore.QEvent.KeyPress) and (
-            event.key() == Qt.Key_Up or
-            event.key() == Qt.Key_Down
-            ):
-            print('Sending space event to parent...')
-            self.event(event)
-            return True
-        return super().eventFilter(widget, event)
+    def keyPressEvent(self, key_event):
+        """
+        Catch key presses to ignore.
+        """
+        if key_event.key() in (Qt.Key_Up, Qt.Key_Down):
+            # self.event(event)
+            return
+        return super().keyPressEvent(key_event)

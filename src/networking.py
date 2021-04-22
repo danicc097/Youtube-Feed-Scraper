@@ -48,7 +48,8 @@ class Sender(QObject):
 
 
 class CustomNetworkManager(QObject):
-    """QNetworkAccessManager wrapper to handle async downloads. \n
+    """
+    QNetworkAccessManager wrapper to handle async downloads. \n
     Usage:
     ------
     ``foo = CustomNetworkManager()`` \n
@@ -71,7 +72,9 @@ class CustomNetworkManager(QObject):
 
     @pyqtSlot(QNetworkReply)
     def _downloadFinished(self, reply: QNetworkReply):
-        """Handle signal 'finished'.  A network request has finished."""
+        """
+        Handle signal 'finished'.  A network request has finished.
+        """
         error = reply.error()
         sender = reply.request().originatingObject()
 
@@ -83,8 +86,10 @@ class CustomNetworkManager(QObject):
             print("[INFO] Error: {}".format(reply.errorString()))
 
     def start_download(self, url: str, sender: Sender):
-        """Use in main application to start a download from ``url`` for
-        a given object ``sender``."""
+        """
+        Use in main application to start a download from ``url`` for
+        a given object ``sender``.
+        """
         request = QNetworkRequest(QUrl(url))
         request.setOriginatingObject(sender)  # keep track of download issuer
         self._manager.get(request)

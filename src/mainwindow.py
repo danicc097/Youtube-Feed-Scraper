@@ -36,7 +36,7 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox,
                              QSystemTrayIcon, QVBoxLayout,
                              QWidget)
 
-from .custom_widgets import (AnimatedToggle, CustomFrame, CustomImageButton,
+from .custom_widgets import (CustomFrame, CustomImageButton,
                              CustomQWidget, CustomVerticalFrame, Notification,
                              RoundLabelImage, Spoiler, CustomDateEdit, CustomListWidget)
 from .networking import CustomNetworkManager, Sender
@@ -47,7 +47,7 @@ from .youtube_scraper import get_videos_from_feed,Video
 
 # if __debug__:
 #     print("IN DEBUG MODE\n"*10)
-    
+
 BASEDIR = get_path(Path(__file__).parent)
 
 basis = sys.executable if hasattr(sys, 'frozen') else sys.argv[0]
@@ -113,7 +113,7 @@ class NewWindow(QMainWindow):
 
     def center(self, window):
         """
-        Center QMainWindow in screen 1.
+        Center a QMainWindow in the primary screen.
         """
         window_rect = window.frameGeometry()
         center_point = QApplication.primaryScreen().geometry().center()
@@ -127,7 +127,7 @@ class NewWindow(QMainWindow):
         for window in self.window_list:
             if len(window.runners) > 0:
                 #TODO not implemented in class
-                for runner in window.runners: runner.kill() 
+                for runner in window.runners: runner.kill()
 
 # TODO kill runners on exit. stop conversion from yt_dl
 class MainWindow(QMainWindow):
@@ -136,9 +136,9 @@ class MainWindow(QMainWindow):
     """
     def __init__(self, window_manager):
         super(MainWindow, self).__init__()
-        
+
         self.window_manager = window_manager
-        
+
         #* User settings
         self.GUI_preferences_path = str(Path.joinpath(RUNTIME_DIR, 'GUI_preferences.ini'))
         #! CRUCIAL set objectNames, else QSettings::setValue: Empty key passed
@@ -183,8 +183,8 @@ class MainWindow(QMainWindow):
         id = QtGui.QFontDatabase.addApplicationFont(str(path))
         family = QtGui.QFontDatabase.applicationFontFamilies(id)[0]
         font = QtGui.QFont(family, 9)
-        self.my_font = font  
-    
+        self.my_font = font
+
         self.centralwidget = QtWidgets.QWidget(self, objectName="centralwidget")
         self.centralwidget.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.setCentralWidget(self.centralwidget)
@@ -232,9 +232,9 @@ class MainWindow(QMainWindow):
         self._setup_media_player()
 
         self._apply_custom_stylesheets()
-                
+
         QtWidgets.QAction("Quit", self).triggered.connect(self.closeEvent)
-        
+
         # #### Quick view video attributes
         # i = 0
         # for id, video in my_videos.items():
@@ -263,8 +263,8 @@ class MainWindow(QMainWindow):
         Expandable lower section.
         """
         self.spoiler = Spoiler(title="Settings", ref_parent=self,font=font)
-        sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
-        
+        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+
         self.list_settings_combo=QComboBox(objectName="list_settings_combo",font=font)
         self.list_settings_combo.addItems(["Favorites","Blacklist"])
         self.list_settings=QListWidget(objectName="list_settings")
@@ -286,35 +286,36 @@ class MainWindow(QMainWindow):
             )
         # TODO add import button
         self.cb_user_temp_folder.toggled.connect(self.media_download_path.setEnabled)
-        
+
         self.cb_max_video_date = QCheckBox("Set oldest video date to download", objectName="cb_max_video_date")
         self.max_video_date_calendar = CustomDateEdit(
-            sizePolicy=sizePolicy, 
+            sizePolicy=sizePolicy,
             enabled = False,
             objectName="max_video_date_calendar",
             )
         self.cb_max_video_date.toggled.connect(self.max_video_date_calendar.setEnabled)
-        
+
         self.cb_max_video_number = QCheckBox("Set maximum videos to download", objectName="cb_max_video_number")
         self.max_video_number_spinbox = QSpinBox(
-            sizePolicy=sizePolicy, 
+            sizePolicy=sizePolicy,
             enabled = False,
             objectName="max_video_number_spinbox",
+            maximum=9999
             )
         self.cb_max_video_number.toggled.connect(self.max_video_number_spinbox.setEnabled)
 
         hLayout_1a=QHBoxLayout()
         hLayout_1a.addWidget(self.cb_user_temp_folder)
         hLayout_1a.addWidget(self.media_download_path)
-        
+
         hLayout_1b=QHBoxLayout()
         hLayout_1b.addWidget(self.cb_max_video_date)
         hLayout_1b.addWidget(self.max_video_date_calendar)
-        
+
         hLayout_1c=QHBoxLayout()
         hLayout_1c.addWidget(self.cb_max_video_number)
         hLayout_1c.addWidget(self.max_video_number_spinbox)
-        
+
         vLayout_1 = QVBoxLayout()
         vLayout_1.setAlignment(Qt.AlignTop)
         vLayout_1.addWidget(self.cb_delete_on_exit)
@@ -322,34 +323,34 @@ class MainWindow(QMainWindow):
         vLayout_1.addLayout(hLayout_1a)
         vLayout_1.addLayout(hLayout_1b)
         vLayout_1.addLayout(hLayout_1c)
-        
+
         self.cb_max_video_duration = QCheckBox("Limit video duration (min)", objectName="cb_max_video_duration")
         self.max_video_duration_spinbox = QSpinBox(
-            sizePolicy=sizePolicy, 
+            sizePolicy=sizePolicy,
             enabled = False,
             objectName="max_video_duration_spinbox",
             )
         self.cb_max_video_duration.toggled.connect(self.max_video_duration_spinbox.setEnabled)
-        
+
         hLayout_2a=QHBoxLayout()
         hLayout_2a.addWidget(self.cb_max_video_duration)
         hLayout_2a.addWidget(self.max_video_duration_spinbox)
-        
+
         vLayout_2 = QVBoxLayout()
         vLayout_2.setAlignment(Qt.AlignTop)
         vLayout_2.addLayout(hLayout_2a)
-        
+
         main_layout = QHBoxLayout()
         main_layout.setAlignment(Qt.AlignTop)
         main_layout.addLayout(vLayout_0)
         main_layout.addLayout(vLayout_1)
         main_layout.addLayout(vLayout_2)
-        
-        # TODO QGroupBox with scraping settings: , 
-        # TODO QGroupBox with player settings: fastforward offset, 
-        
-        
-        
+
+        # TODO QGroupBox with scraping settings: ,
+        # TODO QGroupBox with player settings: fastforward offset,
+
+
+
         #* set any QLayout in expandable item
         self.spoiler.set_content_layout(main_layout)
 
@@ -360,15 +361,15 @@ class MainWindow(QMainWindow):
         """
         self.player = QMediaPlayer()
         self.playlist = QMediaPlaylist()
-        self.was_paused=False
-        self.is_playing=False
-        self.current_item=None
+        self.was_paused = False
+        self.is_playing = False
+        self.current_item = None
 
         self.player.mediaStatusChanged.connect(self.on_media_status_changed)
         self.player.stateChanged.connect(self.on_state_changed)
         self.player.durationChanged.connect(self.horizontalSlider.setMaximum)
         self.player.positionChanged.connect(self.horizontalSlider.setValue)
-        # TODO small volume slider in toolbar right aligned 
+        # TODO small volume slider in toolbar right aligned
         # self.player.volumeChanged.connect()
         self.player.setVolume(60)
 
@@ -523,7 +524,7 @@ class MainWindow(QMainWindow):
             sizePolicy = size_policy,
             styleSheet = "border: none",
             clicked    = self.on_next_song,
-            shortcut   = Qt.Key_Down,
+            shortcut   = Qt.Key_Down, 
         )
 
         spacerItem = QtWidgets.QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -613,20 +614,20 @@ class MainWindow(QMainWindow):
         self.signal.sync_icon.emit("Loading YouTube data", False)
         now = time.time()
         self.max_video_date = self.max_video_date_calendar.dateTime().toSecsSinceEpoch()
-        
+
         max_date = self.max_video_date if self.cb_max_video_date.isChecked() else now
         max_videos = self.max_video_number_spinbox.value() if self.cb_max_video_number.isChecked() else 999
         self.my_videos, error = get_videos_from_feed(max_videos, max_date)
-        
+
         if error:
             QtWidgets.QMessageBox.critical(self, 'Error', \
                 f"Could not find a valid video feed in source: {error}")
-            
+
         for id, video in self.my_videos.items():
             self.signal.add_listitem.emit(video)
             self.signal.start_video_download.emit(video)
             QApplication.processEvents()  # QRunnable not worth it
-            
+
         self.signal.sync_icon.emit("", True)
 
     def fill_list_widget(self, video: Video):
@@ -749,32 +750,42 @@ class MainWindow(QMainWindow):
         widget.color = QtGui.QColor(61, 125, 194)
 
     def on_item_change(self, item, previous_item):
-        self.current_item = item
-        current_widget = self.listVideos.itemWidget(self.current_item)
-        self.was_paused = self.playButton.isChecked()
-        if self.was_paused:
-            if not hasattr(current_widget, "video"): 
+        """
+        Invoked when the selected video item in a list changes.
+        """
+        current_item = item
+        current_widget = self.listVideos.itemWidget(current_item)
+        self.is_playing = self.playButton.isChecked()
+        if self.is_playing:
+            if not hasattr(current_widget, "video"):
                 # end of list
-                self.on_next_song()
+                # self.on_next_song()
+                # TODO select next_song or previous song depending on
+                # item and previous_item row number
                 return
             current_video = current_widget.video
-            if not hasattr(current_video, "download_path"): return
+            if current_video.download_path is None: return
             video_media = QMediaContent(QUrl.fromLocalFile(current_video.download_path))
             self.playlist.clear()
             self.playlist.addMedia(video_media)
             self.player.play()
             self.played_video = current_video
+            self.current_item = current_item
 
     def on_media_status_changed(self):
+        """
+        Invoked when a file is loaded in ``QMediaPlayer``.
+        """
+        self.is_playing = self.playButton.isChecked()
         if self.player.mediaStatus()==QMediaPlayer.LoadedMedia and self.is_playing:
             durationT = self.player.duration()
             self.horizontalSlider.setRange(0, durationT)
-            # self.centralWidget().layout().itemAt(0).layout().itemAt(2).widget().setText(
-            #     '%d:%02d' % (int(durationT / 60000), int((durationT / 1000) % 60))
-            # )
             self.player.play()
 
     def on_state_changed(self):
+        """
+        Invoked when the ``QMediaPlayer`` state changes.
+        """
         if self.player.state() == QMediaPlayer.StoppedState:
             self.player.stop()
 
@@ -783,12 +794,12 @@ class MainWindow(QMainWindow):
         ``position`` : timestamp in milliseconds.
         """
         self.horizontalSlider.setValue(position)
-        
-        # TODO 
-        if position == self.player.duration():
-            self.on_next_song()
-        
-        
+
+        # TODO
+        # if position == self.player.duration():
+        #     self.on_next_song()
+
+
 
     def seek_position(self, position):
         """
@@ -805,12 +816,11 @@ class MainWindow(QMainWindow):
         """
         if not self.current_item: return
         self.was_paused = checked
-        print("now playing: ", self.was_paused)
         current_video = self.listVideos.itemWidget(self.current_item).video
         print("current_video.download_path : ", current_video.download_path)
         if self.player.mediaStatus() == QMediaPlayer.NoMedia:
             self.played_video = current_video
-            if not hasattr(current_video, "download_path"): return
+            if current_video.download_path is None: return
             # print("current_video.download_path : ", current_video.download_path)
             video_media = QMediaContent(QUrl.fromLocalFile(current_video.download_path))
             self.playlist.addMedia(video_media)
@@ -834,14 +844,12 @@ class MainWindow(QMainWindow):
         Select the previous video list item.
         """
         if self.listVideos.count() == 0: return
-        
+
         previous_row = self.listVideos.currentRow() - 1
-        if self.listVideos.currentRow() == 0: 
+        if self.listVideos.currentRow() == 0:
             previous_row = self.listVideos.count() - 1
-            
+
         self.listVideos.setCurrentRow(previous_row)
-        self.listVideos.setFocus()
-        self.listVideos.item(previous_row).setSelected(True)
         self.on_list_item_left_click(self.listVideos.item(previous_row))
 
     def on_next_song(self):
@@ -849,14 +857,12 @@ class MainWindow(QMainWindow):
         Select the next video list item.
         """
         if self.listVideos.count() == 0: return
-        
+
         next_row = self.listVideos.currentRow() + 1
-        if self.listVideos.currentRow() == self.listVideos.count() - 1: 
+        if self.listVideos.currentRow() == self.listVideos.count() - 1:
             next_row = 0
-            
+
         self.listVideos.setCurrentRow(next_row)
-        self.listVideos.setFocus()
-        self.listVideos.item(next_row).setSelected(True)
         self.on_list_item_left_click(self.listVideos.item(next_row))
 
     def apply_shadow_effect(self, widget: QWidget, color=QColor(50, 50, 50), blur_radius=10, offset=2):
@@ -986,13 +992,13 @@ class MainWindow(QMainWindow):
         if self.save_to_runtimedir:
             self.statusBar().showMessage("Changes saved to: {}".format(self.GUI_preferences_path))
             guisave(self, self.my_settings, self.objects_to_exclude)
-            
+
         #* A specific config file was opened from the menu
         elif self.config_is_set and self.filename:
             self.statusBar().showMessage("Changes saved to: {}".format(self.filename))
             self.my_settings = QtCore.QSettings(self.filename, QtCore.QSettings.IniFormat)
             guisave(self, self.my_settings, self.objects_to_exclude)
-            
+
         else:
             self.write_new_file()
 
@@ -1059,22 +1065,28 @@ class MainWindow(QMainWindow):
         self.title.setMinimumHeight(self.label_sync.height())
         self.label_sync.setPixmap(self.img_sync)
 
-        def ellipsis_in_label(label):
-            if self.label_counter < self.label_limit:
-                text = label.text() + "."
-                self.label_counter += 1
-            else:
-                text = label.text()[:-self.label_limit]
-                self.label_counter = 0
-            label.setText(text)
-
         self.label_counter = 0
         self.label_limit = 3
         self.label_timer = QtCore.QTimer()
-        self.label_timer.timeout.connect(lambda: ellipsis_in_label(self.title))
+        self.label_timer.timeout.connect(lambda: self.ellipsis_in_label(self.title))
         self.label_timer.start(1 * 1000)
         self.statusBar().addPermanentWidget(self.label_sync)
         self.statusBar().addPermanentWidget(self.title)
+
+    def ellipsis_in_label(self, widget):
+        """
+        Appends a dynamic ellipsis at the end of a widget's ``text``, if available.
+        """
+        try:
+            if self.label_counter < self.label_limit:
+                text = widget.text() + "."
+                self.label_counter += 1
+            else:
+                text = widget.text()[:-self.label_limit]
+                self.label_counter = 0
+            widget.setText(text)
+        except AttributeError:
+            return
 
     def notify_all_videos_downloaded(self):
         """
@@ -1084,7 +1096,7 @@ class MainWindow(QMainWindow):
         if not self.hasFocus():
             self.message_is_being_shown = True
             self.trayIcon.showMessage(
-                f"🎼 All videos have been downloaded!\n", 
+                f"🎼 All videos have been downloaded!\n",
                 "Click here to start listening 🎵.",
                 self.window_manager.app_icon,
                 1200 * 1000,
@@ -1105,7 +1117,7 @@ class MainWindow(QMainWindow):
         Also necessary to display a desktop notification.
         """
         self.restoreAction = QtWidgets.QAction("&Restore", self, triggered=self.showNormal)
-        self.quitAction = QtWidgets.QAction("&Quit", self, triggered=self.close)  # invoke closeEvent
+        self.quitAction = QtWidgets.QAction("&Quit", self, triggered=self.close)  # filtered in closeEvent
         self.trayIconMenu = QtWidgets.QMenu(self)
         self.trayIconMenu.addAction(self.restoreAction)
         self.trayIconMenu.addAction(self.quitAction)
@@ -1154,7 +1166,7 @@ class MainWindow(QMainWindow):
             self.infoScreen.setDetailedText("http://www.gnu.org/licenses/gpl-3.0.en.html")
         self.infoScreen.setWindowModality(Qt.ApplicationModal)
         self.infoScreen.show()
-        
+
     def change_slider_position(self, fast_forward=True, offset=20000):
         """
         Fast forward or rewind song.
@@ -1169,8 +1181,8 @@ class MainWindow(QMainWindow):
         self.horizontalSlider.setValue(position)
         self.player.setPosition(position)
         # self.horizontalSlider.setValue(position)
-        self.player.positionChanged.connect(self.horizontalSlider.setValue)
-        
+        self.player.positionChanged.connect(self.on_position_changed)
+
 
     #####???##################################################
     #####??? EVENTS
@@ -1208,10 +1220,10 @@ class MainWindow(QMainWindow):
             # elif event.type() == QtCore.QEvent.FocusOut:
             #     if isinstance(object, Notification):
             #         object.destroy()
-            
-        # elif event.type() == QtCore.QEvent.KeyPress:
-        #     self.keyPressEvent(event)
-        
+
+        elif event.type() == QtCore.QEvent.MouseButtonPress and isinstance(object, CustomListWidget):
+            return True
+
         return super().eventFilter(object, event)
 
     def changeEvent(self, event):
@@ -1240,9 +1252,12 @@ class MainWindow(QMainWindow):
         close.exec()  # Necessary for property-based API
         if close.clickedButton() == close_accept:
             self.trayIcon.setVisible(False)
+            
+            #* Delete temp folder
             media_download_path = self.get_media_download_path()
             if self.cb_delete_on_exit.isChecked():
                 shutil.rmtree(media_download_path, ignore_errors=True)
+            
             guisave(self, self.my_settings, self.objects_to_exclude)
             event.accept()
         else:
@@ -1253,25 +1268,25 @@ class MainWindow(QMainWindow):
         Reimplements ``keyPressEvent``.
         """
         #* Control media playing through arrows and spacebar
-                    
+
         # TODO left and right only work properly
         # AFTER clicking on any video manually
         # not with up and down keys
         if event.key() == Qt.Key_Left:
             self.change_slider_position(fast_forward=False)
-                        
+
         elif event.key() == Qt.Key_Right:
             self.change_slider_position(fast_forward=True)
 
-                        
+
         # elif event.key() == Qt.Key_Up:
         #     print("Key_Up pressed")
         #     self.on_previous_song()
-                        
+
         # elif event.key() == Qt.Key_Down:
         #     print("Key_Down pressed")
         #     self.on_next_song()
-                        
+
         # else:
         #     return False
 

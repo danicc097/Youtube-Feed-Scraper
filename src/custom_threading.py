@@ -57,8 +57,11 @@ class Worker(QtCore.QRunnable):
             
         self.signals.finished.emit()
 
-    @QtCore.pyqtSlot()  # CRUCIAL TO ADD WRAPPER
+    @QtCore.pyqtSlot()
     def kill(self):
+        """
+        Stop code execution.
+        """
         print("Thread killed")
         self.is_killed = True
         self.event_stop.set()
