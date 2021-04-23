@@ -14,23 +14,26 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import copy
-from logging import info
 import os
-from selenium import webdriver
-from selenium.webdriver.support.wait import WebDriverWait
-import time
-from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import WebDriverException
-from webdriver_manager.chrome import ChromeDriverManager
-from bs4 import BeautifulSoup
-
 import re
-from youtube_dl import YoutubeDL
-from jsonpath_ng import jsonpath
-from jsonpath_ng.ext import parse
-import json
+import time
+from logging import info
 from sys import platform
-from typing import List, Set, Dict, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from bs4 import BeautifulSoup
+from lxml import etree
+from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.wait import WebDriverWait
+import selenium.webdriver.support.expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+from youtube_dl import YoutubeDL
+
+from .resources import get_sec_from_hhmmss, get_timestamp_from_relative_time
+
 
 class MyLogger(object):
     """
@@ -51,21 +54,34 @@ class Video():
     Store video information for ease of use. 
     Download it in parallel using ``start_download`` in a worker.
     """
-    def __init__(self, id, title="", time=time.time(), author="", thumbnail="", author_thumbnail="", duration=""):
+    def __init__(
+        self,
+        id,
+        title="",
+        time=time.time(),
+        author="",
+        author_id="",
+        duration="",
+        thumbnail="",
+        author_thumbnail="",
+    ):
         self.id               = str(id)
         self.url              = "https://www.youtube.com/watch?v=" + self.id
         self.title            = str(title)
         self.time             = int(time)
         self.author           = str(author)
-        self.thumbnail        = str(thumbnail)
-        self.author_thumbnail = str(author_thumbnail)
+        self.author_id        = str(author_id)
         self.duration         = str(duration)
+        self.thumbnail        = None
+        self.author_thumbnail = None
         self.download_path    = None
         self.is_downloaded    = False
         self.download_button  = None
 
     def start_download(self, download_dir):
-        """``download_dir`` : temp dir or user-defined."""
+        """
+        ``download_dir`` : temp dir or user-defined.
+        """
         self._download_dir = download_dir
         self.download_path = os.path.join(download_dir, f'{self.id}.mp3')
         # do not set extension explicitly bc of conversion done internally
@@ -83,27 +99,24 @@ class Video():
         }
         with YoutubeDL(self.ydl_opts) as ydl:
             try:
-                ydl.download([self.url])                
+                ydl.download([self.url])
             except:
                 self._download_fail()
 
     def download_video_metadata(self):
-        with YoutubeDL(self.ydl_opts) as ydl:
-            info_dict = ydl.extract_info(self.url, download=False)
-            # print("\n"*6)
-            self.title            = info_dict["title"]
-            self.time             = info_dict["upload_date"] # YYYMMDD 
-            self.author           = info_dict["uploader"]
-            self.author_id        = info_dict["channel_id"]
-            self.thumbnail        = info_dict["thumbnail"]
-            self.author_thumbnail = info_dict["title"] 
-            self.duration         = info_dict["duration"] # seconds
+        """
+        Downloads additional metadata through youtube-dl.
+        """
+        info_dict = YoutubeDL().extract_info(self.url, download=False)
+        self.thumbnail = info_dict["thumbnail"]
+        self.duration  = info_dict["duration"]
+        # self.author_thumbnail =
 
     def _progress_hook(self, d):
         # TODO more accurate conversion status after conversion:
         # download_button.icon = "file_download_done"
         # ? would require external FFmpeg usage
-        
+
         if d['status'] == 'finished':
             print(f'Done downloading {self.title}. Converting...')
             self._download_success()
@@ -111,8 +124,8 @@ class Video():
 
     def _download_success(self):
         self.download_button.icon = "download_success"
-        
-        # #? 'postprocessors' key to convert everything to mp3 is reccommended instead 
+
+        # #? 'postprocessors' key to convert everything to mp3 is reccommended instead
         # #? windows: see qmedia formats supported through DirectShow
         # for dirpath, dirnames, files in os.walk(self._download_dir):
         #     matching_video = [os.path.join(dirpath, file) for file in files if self.id in file]
@@ -124,6 +137,9 @@ class Video():
 class InvalidUserDataFolder(Exception):
     pass
 
+class MissingHtmlElements(Exception):
+    pass
+
 class YoutubeScraper():
     """
     Youtube subscription feed scraping object.
@@ -133,7 +149,7 @@ class YoutubeScraper():
         self.max_date = max_date
         self.last_video_id = last_video_id
         self._user_data = user_data
-    
+
     @property
     def user_data(self):
         return self._user_data
@@ -143,19 +159,16 @@ class YoutubeScraper():
         if self.user_data == user_data:
             return
         self._user_data = user_data
-    
-    
-    def get_videos_from_feed(self, from_local_dir=None) -> Dict[str, Video]: 
+
+
+    def get_videos_from_feed(self, from_local_dir=None) -> Dict[str, Video]:
         """
         Return a dictionary of ``Video`` instances accessed by ``id``.
         """
-        #TODO quit self.driver from mainwindow method
-        #TODO on scrape button press try: quit self.driver
-        #TODO new stop scraping button 
-        
-        
-        driver_setup_success = self.setup_driver()
-        if not driver_setup_success: 
+
+
+        driver_setup_success = self._setup_driver()
+        if not driver_setup_success:
             raise InvalidUserDataFolder("Select a valid browser user data folder.")
         print('\nRETRIEVING YOUTUBE DATA...\n')
 
@@ -165,133 +178,35 @@ class YoutubeScraper():
         self.driver.switch_to.window(new_tab)
         self.driver.get('https://www.youtube.com/feed/subscriptions')
         self.source = self.driver.page_source
-        #TODO use beautiful soup to parse instead of selenium
+        
+        # wait = WebDriverWait(self.driver, 15)
+        # wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '#endpoint')))
+        # # wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="endpoint"]/tp-yt-paper-item')))
+        # self.driver.find_element_by_css_selector('#endpoint').click() 
+        
+        # self.extract_author_thumbnails()
+        
+        time.sleep(4)
 
         self.get_videos_metadata()
-        
-        self.videos_parsed = len(self.videos_json)
-        print("on start, len(videos json) is", self.videos_parsed)
-        
-        my_videos = self.get_video_dict()
-                
+
         self.stop_scraping()
 
-        return my_videos
-    
-    def get_video_dict(self):
-        """
-        
-        """
-        #* get last video information
-        last_video_parsed = self.parse_videos([self.videos_json[-1]])
-        id, self._video = last_video_parsed.popitem()
+        return self.my_videos
 
-        while self.videos_parsed < self.max_videos and self._video.time > self.max_date:  #it's using the same video every time
-            print("\n"*3, "---------------------------------")
-            print(f"video.time is {self._video.time}")
-            print(f"self.videos_parsed are {self.videos_parsed}")
-            print("\nScrolling down.\n")
-            
-            self.scroll_down()
-            time.sleep(3)
-            # TODO DEBUG: 
-            # self.source is growing but not updating variable
-            
-            # WebDriverWait(self.driver, 10)
-            previous_source = copy.deepcopy(self.source)
-            self.source = self.driver.page_source
-            print("previous_source == self.source ?")
-            print(str(previous_source) == str(self.source))
-            
-            previous_json = copy.deepcopy(self.videos_json)
-            self.get_videos_metadata()
-            print("previous_json == self.videos_json ?")
-            print(str(previous_json) == str(self.videos_json))
-            
-            self.videos_parsed = len(self.videos_json)
-            print(f"self.videos_parsed (after new json) are {self.videos_parsed}")
-            last_video_parsed = self.parse_videos([self.videos_json[-1]])
-            id, self._video = last_video_parsed.popitem()
-            
-            with open("debug_old_youtube_page_source.txt","a+",encoding="utf8") as f:
-                # global self.source
-                f.write(str(previous_json))
-            
-            with open("debug_new_youtube_page_source.txt","a+",encoding="utf8") as f:
-                # global self.source
-                f.write(str(self.videos_json))
-            
-            
-        return self.parse_videos(self.videos_json, id_stop=id)
-
-    def parse_videos(self, videos_json, id_stop=None):
-        #? new metadata to be as required + edit Video class accordingly
-        
-        #TODO use selenium and download metadata through youtubedl,
-        # discard variable in source
-        
-        self.parse_strings = {
-            'id'              : 'videoId',
-            'title'           : 'title.runs[*].text',
-            'author'          : 'shortBylineText.runs[*].text',
-            'author_thumbnail': 'channelThumbnail.thumbnails[*].url',
-            'thumbnail'       : 'thumbnail.thumbnails[*].url',
-            'time'            : 'publishedTimeText.simpleText',
-            'duration'        : 'thumbnailOverlays[*].thumbnailOverlayTimeStatusRenderer.text.simpleText',
-        }
-
-        my_videos = {}
-        videos_parsed = 0
-        for item in videos_json:
-            current_video = self.create_video_dict_item(my_videos, item)
-            videos_parsed += 1
-            # TODO until user selected last video time or id (history button) -> qsettings
-            
-            #TODO FIX - uses the same current_video every time it scrolls
-            
-            print(f"current_video.time: {current_video.time} and max_date: {self.max_date}")
-            if (
-                videos_parsed >= self.max_videos or 
-                # current_video.time < self.max_date or 
-                current_video.id == id_stop
-            ):
-                break
-                
-        print("videos_json length :", len(videos_json))
-        print("videos parsed :", videos_parsed)
-        return my_videos
-    
-    def create_video_dict_item(self, my_videos, item):
-        """
-        Create a new ``Video`` value, accessed by ``id``.
-        """
-        for video_attr, parse_str in self.parse_strings.items():
-            json_expr = parse(parse_str)
-            # see jsonpath_ng
-            matches = [match.value for match in json_expr.find(item)]
-            if not matches:
-                match_attr = ""
-            else:
-                match_attr = matches[0]
-                # this requires id to be the first key to be parsed
-                if video_attr == "id":
-                    video_id = match_attr
-                    my_videos[video_id] = Video(video_id)
-                elif video_attr == "time":
-                    match_attr = self.get_timestamp_from_relative_time(match_attr)
-                setattr(my_videos[video_id], video_attr, match_attr)
-        return my_videos[video_id]
-    
     def stop_scraping(self):
+        """
+        Quit driver gracefully.
+        """
         self.driver.quit()
-        
-    def scroll_down(self):
+
+    def _scroll_down(self):
         self.driver.find_element_by_tag_name('html').send_keys(Keys.END)
         # self.driver.refresh()
         # for i in range(0, 20):
         #     self.driver.execute_script("window.scrollBy(0, 1000);")
-        
-    def setup_driver(self):
+
+    def _setup_driver(self):
         if self._user_data is None:
             if platform == 'win32':
                 self._user_data = os.path.expanduser('~') + r'\AppData\Local\Google\Chrome\User Data'
@@ -317,44 +232,91 @@ class YoutubeScraper():
         # self.driver.maximize_window()
         return True
 
-
-    def get_timestamp_from_relative_time(self, time_string):
-        """Return a timestamp from a relative ``time_string``, e.g. ``3 minutes ago``."""
-        now = time.time()
-        if re.findall('[0-9]+', time_string):
-            relative_time = int(re.findall('[0-9]+', time_string)[0])
-            if 'second' in time_string:
-                timestamp = now - relative_time
-            elif 'minute' in time_string:
-                timestamp = now - relative_time * 60
-            elif 'hour' in time_string:
-                timestamp = now - relative_time * 60 * 60
-            elif 'day' in time_string:
-                timestamp = now - relative_time * 60 * 60 * 24
-            elif 'week' in time_string:
-                timestamp = now - relative_time * 60 * 60 * 24 * 7
-            elif 'month' in time_string:
-                timestamp = now - relative_time * 60 * 60 * 24 * 7 * 30
-            else:
-                timestamp = now
-        else:
-            timestamp = now
-        return int(timestamp)
-    
     def get_videos_metadata(self):
         """
         Extract a list containing all videos' unparsed metadata.
         """
-        try:
-            #* variable containing rendered feed videos data
-            json_var = re.findall(r'ytInitialData = (.*?);', self.source, re.DOTALL | re.MULTILINE)[0]
-        except Exception as e:
-            raise e 
+        upload_dates, video_links, authors, \
+            author_channels, video_durations, video_titles = self.extract_video_elements()
 
-        json_dict = json.loads(json_var)
 
-        #* match all rendered video grids
-        jsonpath_expr = parse('*..gridRenderer..gridVideoRenderer')
+        last_video_upload_date = get_timestamp_from_relative_time(upload_dates[-1])
+        
+        # check if enough data has been gathered:
+        while len(video_links) < self.max_videos and last_video_upload_date > self.max_date:
+            print("\nScrolling down.\n")
+            print(len(video_links))
+            self._scroll_down()
+            time.sleep(5)
+            self.source = self.driver.page_source
+            upload_dates, video_links, authors, \
+            author_channels, video_durations, video_titles = self.extract_video_elements()
+            last_video_upload_date = get_timestamp_from_relative_time(upload_dates[-1])
 
-        #* get each video's data dict
-        self.videos_json = [match.value for match in jsonpath_expr.find(json_dict)]
+        self.my_videos = {}
+        
+        for upload_date, video_link, author, author_channel, video_duration, video_title in zip(
+            upload_dates, video_links, authors, author_channels, video_durations, video_titles
+        ):
+            if len(self.my_videos) < self.max_videos:
+                print(self.max_videos, "and cuerrent dict len is: " ,len(self.my_videos))
+                video_id = video_link.split("/watch?v=")[-1].split("&")[0]
+                # print(upload_date, video_link, author, author_channel, video_duration, video_title)
+
+                self.my_videos[video_id] = Video(
+                    id        = video_id,
+                    title     = video_title,
+                    author    = author,
+                    author_id = author_channel,
+                    # duration  = get_sec_from_hhmmss(video_duration),
+                    time      = get_timestamp_from_relative_time(upload_date),
+
+                )
+                self.my_videos[video_id].download_video_metadata()
+                
+                # TODO RETURN self.my_videos AND DO THIS IN GUI, PROCESSING EVENTS
+                # alternative: 
+                # see https://stackoverflow.com/questions/55088847/pyqt5-emit-signal-from-another-module
+            else:
+                break
+        
+    def extract_author_thumbnails(self):
+        soup = BeautifulSoup(self.source, "html.parser")
+        dom = etree.HTML(str(soup))
+        self.thumbnails = dom.xpath('//*[@id="img"]/./@src')  
+        self.thumbnails_authors = dom.xpath('//*[@id="endpoint"]/text()')
+        print("len of subs thumbnails pictures: ", len(self.thumbnails), len(self.thumbnails_authors) )
+        for tb, tb_autor in self.thumbnails, self.thumbnails_authors:
+            print(tb, " - ", tb_autor)  
+
+    def extract_video_elements(self):
+        soup = BeautifulSoup(self.source, "html.parser")
+        dom = etree.HTML(str(soup))
+
+        upload_dates    = dom.xpath('//*[@id="metadata-line"]/span[2]/text()')
+        video_links     = dom.xpath('//*[@id="video-title"]/./@href')
+        authors         = dom.xpath('//*[@id="text"]/a/text()')
+        author_channels = dom.xpath('//*[@id="text"]/a/@href')
+        video_durations = dom.xpath('//*[@id="overlays"]/ytd-thumbnail-overlay-time-status-renderer/span/text()')
+        video_titles    = dom.xpath('//*[@id="video-title"]/./@title')
+
+        print(len(upload_dates))
+        print(len(video_links))
+        print(len(authors))
+        print(len(author_channels))
+        print(len(video_durations))
+        print(len(video_titles))
+
+        # if not len(set(
+        #         [
+        #             len(upload_dates),
+        #             len(video_links),
+        #             len(authors),
+        #             len(author_channels),
+        #             len(video_durations),
+        #             len(video_titles)
+        #         ]
+        #         )) == 1:
+        #     raise MissingHtmlElements("Couldn't extract all required information. Please try again.")
+
+        return upload_dates,video_links,authors,author_channels,video_durations,video_titles

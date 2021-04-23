@@ -50,12 +50,12 @@ class Worker(QtCore.QRunnable):
         try:
             result = self.fn(*self.args, **self.kwargs)
             self.signals.result.emit(result)
+            self.signals.finished.emit()
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
             
-        self.signals.finished.emit()
 
     @QtCore.pyqtSlot()
     def kill(self):

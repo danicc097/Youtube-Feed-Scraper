@@ -38,10 +38,10 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox,
 
 from .custom_widgets import (CustomFrame, CustomImageButton,
                              CustomQWidget, CustomVerticalFrame, Notification,
-                             RoundLabelImage, Spoiler, CustomDateEdit, CustomListWidget)
+                             RoundLabelImage, Spoiler, CustomDateEdit, CustomListWidget, CustomSlider)
 from .networking import CustomNetworkManager, Sender
 from .custom_threading import Worker, WorkerSignals
-from .resources import MyIcons, get_path, get_sec
+from .resources import MyIcons, get_path
 from .save_restore import guirestore, guisave
 from .youtube_scraper import Video, YoutubeScraper
 
@@ -171,8 +171,6 @@ class MainWindow(QMainWindow):
         #* Temporary video downloads folder
         self.temp_dir = tempfile.mkdtemp()
         self.media_download_path = self.temp_dir
-        self.max_video_duration = 9999
-        print(self.temp_dir)
 
         ##############?##############?##############?##############?
         ##############?##############? UI definition
@@ -222,9 +220,6 @@ class MainWindow(QMainWindow):
         self.runners = []
         self.threadpool = QtCore.QThreadPool()
 
-        #* Auto restore ini settings on startup
-        self._restore_settings_on_start()
-
         #* Tray icon
         self.message_is_being_shown = False
         self._create_tray_icon()
@@ -233,17 +228,10 @@ class MainWindow(QMainWindow):
 
         self._apply_custom_stylesheets()
 
+        #* Auto restore ini settings on startup
+        self._restore_settings_on_start()
+        
         QtWidgets.QAction("Quit", self).triggered.connect(self.closeEvent)
-
-        # #### Quick view video attributes
-        # i = 0
-        # for id, video in my_videos.items():
-        #     if i >= 3:
-        #         break
-        #     print('\n'.join("'%s': '%s', " % item for item in vars(video).items()))
-        #     print("---------------------------")
-        #     i += 1
-        # #### END Quick view
 
 
     def _create_video_list(self):
@@ -329,9 +317,9 @@ class MainWindow(QMainWindow):
             sizePolicy=sizePolicy,
             enabled = False,
             objectName="max_video_duration_spinbox",
+            value=9,
             )
         self.cb_max_video_duration.toggled.connect(self.max_video_duration_spinbox.setEnabled)
-        self.max_video_duration_spinbox.valueChanged.connect(self.update_max_video_duration)
         hLayout_2a=QHBoxLayout()
         hLayout_2a.addWidget(self.cb_max_video_duration)
         hLayout_2a.addWidget(self.max_video_duration_spinbox)
@@ -468,6 +456,7 @@ class MainWindow(QMainWindow):
         Initializes the top tool bar.
         """
         self.actionGetFeed = QtWidgets.QAction("Scrape YouTube feed",icon=QIcon(ICONS.travel_explore))
+        #TODO update button to stop scraping button, red font, retain fixed width
         self.actionGetFeed.triggered.connect(lambda: self.start_worker("populate_worker"))
         self.actionRestoreFeed = QtWidgets.QAction("Restore YouTube feed",icon=QIcon(ICONS.restore))
         self.actionOpenFeed = QtWidgets.QAction("Open YouTube in browser",icon=QIcon(ICONS.subscriptions))
@@ -476,7 +465,7 @@ class MainWindow(QMainWindow):
         self.actionShowHowToUse.triggered.connect(self.show_how_to_use)
 
         self.toolBar = QtWidgets.QToolBar(self)
-        self.toolBar.addAction(self.actionGetFeed)
+        self.toolBar.addAction(self.actionGetFeed) 
         self.toolBar.addAction(self.actionRestoreFeed)
         self.toolBar.addAction(self.actionOpenFeed)
         self.toolBar.addAction(self.actionShowHowToUse)
@@ -502,7 +491,7 @@ class MainWindow(QMainWindow):
             sizePolicy = size_policy,
             styleSheet = "border: none",
             clicked    = self.on_play,
-            shortcut   = Qt.Key_Space, # TODO FIX acts like tab effect adding borders
+            # shortcut   = Qt.Key_Space, # TODO FIX acts like tab effect adding borders
         )
         self.rewindButton = QtWidgets.QPushButton(
             "",
@@ -535,7 +524,7 @@ class MainWindow(QMainWindow):
         self.horizontalLayout.addWidget(self.fastForwardButton)
         self.horizontalLayout.addItem(spacerItem)
 
-        self.horizontalSlider = QtWidgets.QSlider(self.centralwidget)
+        self.horizontalSlider = CustomSlider(self.centralwidget)
         self.horizontalSlider.setSingleStep(10)
         self.horizontalSlider.setOrientation(QtCore.Qt.Horizontal)
         self.horizontalSlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
@@ -553,7 +542,7 @@ class MainWindow(QMainWindow):
         #* FOR A VERTICAL SLIDER - <:vertical>
         self.horizontalSlider.setStyleSheet(
             """
-                .QSlider::groove:horizontal {
+                .CustomSlider::groove:horizontal {
             background: red;
             position: absolute; 
             /* absolutely position 4px from the left and right of the widget. 
@@ -562,7 +551,7 @@ class MainWindow(QMainWindow):
             border-radius: 4px 4px 4px 4px ;
         }
 
-        .QSlider::handle:horizontal {
+        .CustomSlider::handle:horizontal {
             height: 10px;
             background: #438EC8;
             width: 12px ;
@@ -570,12 +559,12 @@ class MainWindow(QMainWindow):
             margin: 0 -4px; /* expand outside the groove */
         }
 
-        .QSlider::add-page:horizontal {
+        .CustomSlider::add-page:horizontal {
             background: white;
             border-radius: 3px 3px 3px 3px ;
         }
 
-        .QSlider::sub-page:horizontal {
+        .CustomSlider::sub-page:horizontal {
             background: #8AB4F8;
             border-radius: 4px 4px 4px 4px ;
         }"""
@@ -588,21 +577,40 @@ class MainWindow(QMainWindow):
         if worker == "populate_worker":
             populate_worker = Worker(self.populate_video_list)
             populate_worker.signals.error.connect(self.on_scraper_error)
+            populate_worker.signals.finished.connect(self.on_scraper_finish)
             self.threadpool.start(populate_worker)
         elif worker == "video_download":
             video = kwargs.pop('video')
             if isinstance(video, Video):
-                if not isinstance(get_sec(video.duration), int):
+                # TODO fix duration not scraped correctly.
+                # wait until info_dict is downloaded and compare then
+                if not isinstance(video.duration, int):
                     #? ignores unreleased videos (premiere, etc)
                     pass
-                elif get_sec(video.duration) < self.max_video_duration:
+                elif video.duration < self.max_video_duration:
                     media_download_path = self.get_media_download_path()
                     yt_dl_worker = Worker(video.start_download, media_download_path)
                     self.threadpool.start(yt_dl_worker)
                 #TODO if not self.is_downloaded -> gray out
 
+    def on_scraper_finish(self):
+        """
+        To be invoked when the scraping process finishes successfully.
+        """
+        #* Download thumbnail
+        for row in range(0, self.listVideos.count()):
+            item_widget = self.listVideos.itemWidget(self.listVideos.item(row))
+            video = item_widget.video
+            vid_thumbnail_sender = Sender("vid_thumbnail", item_widget)
+            self.sender_list.append(vid_thumbnail_sender)
+            self.network_manager.start_download(url=video.thumbnail, sender=vid_thumbnail_sender)
+
     def on_scraper_error(self, error):
         exctype, value, traceback = error
+        
+        # ignore if its raised because of app exit 
+        if "InvalidSessionIdException" in str(exctype): return
+        
         QtWidgets.QMessageBox.critical(self, 'Error', \
             f"Could not find a valid video feed in source:\n\n {exctype}\n\n{value}"
         )
@@ -627,21 +635,25 @@ class MainWindow(QMainWindow):
         self.signal.sync_icon.emit("Loading YouTube data", False)
         now = time.time()
         self.max_video_date = self.max_video_date_calendar.dateTime().toSecsSinceEpoch()
-
+        self.max_video_duration = self.max_video_duration_spinbox.value() * 60
+        print("self.max_video_duration is_:", self.max_video_duration)
         max_date = self.max_video_date if self.cb_max_video_date.isChecked() else now
-        max_videos = self.max_video_number_spinbox.value() if self.cb_max_video_number.isChecked() else 999
+        max_videos = self.max_video_number_spinbox.value() if self.cb_max_video_number.isChecked() else 300
         self.scraper = YoutubeScraper(max_videos, max_date)
-        # TODO get from a qlineedit
+        
+        # TODO get chrome data folder from a qlineedit
         # self.scraper.user_data = ???.text()
         self.my_videos = self.scraper.get_videos_from_feed()
         # self.my_videos, error = get_videos_from_feed(max_videos, max_date)
 
         for id, video in self.my_videos.items():
+            # TODO process videos here, not in scraper module
             self.signal.add_listitem.emit(video)
             self.signal.start_video_download.emit(video)
             QApplication.processEvents()  # QRunnable not worth it
 
         self.signal.sync_icon.emit("", True)
+
 
     def fill_list_widget(self, video: Video):
         """
@@ -703,23 +715,16 @@ class MainWindow(QMainWindow):
 
         item_widget.setTextUp(video.title)
 
-        author_thumbnail_sender = Sender("author_thumbnail", item_widget)
+        # author_thumbnail_sender = Sender("author_thumbnail", item_widget)
         # it's not garbage. Else the reply will return a destroyed Sender
-        self.sender_list.append(author_thumbnail_sender)
-        self.network_manager.start_download(url=video.author_thumbnail, sender=author_thumbnail_sender)
-
-        vid_thumbnail_sender = Sender("vid_thumbnail", item_widget)
-        self.sender_list.append(vid_thumbnail_sender)
-        self.network_manager.start_download(url=video.thumbnail, sender=vid_thumbnail_sender)
-
+        # self.sender_list.append(author_thumbnail_sender)
+        # self.network_manager.start_download(url=video.author_thumbnail, sender=author_thumbnail_sender)
+        
         # no need to subclass QListWidgetItem, just the widget (CustomQWidget) set on it
         item = QListWidgetItem(self.listVideos)
         item.setSizeHint(item_widget.sizeHint())
         self.listVideos.addItem(item)
         self.listVideos.setItemWidget(item, item_widget)
-
-    def update_max_video_duration(self, value):
-        self.max_video_duration = value
 
     def get_media_download_path(self):
         """
@@ -1203,18 +1208,27 @@ class MainWindow(QMainWindow):
     #####???##################################################
     #####??? EVENTS
     #####???##################################################
+    keys_to_ignore = (Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down, Qt.Key_Space)
+    
+    def event(self, event):
+        if event.type() == QtCore.QEvent.KeyPress:
+            if event.key() == Qt.Key_Space:
+                print('Mainwindow handling space')
+                self.playButton.click()
+                return True
 
-    # TODO may need to override events in list widget
-    # def event(self, event):
-    #     if (event.type() == QtCore.QEvent.KeyPress) and (
-    #         event.key() == Qt.Key_Up or
-    #         event.key() == Qt.Key_Down or
-    #         event.key() == Qt.Key_Left or
-    #         event.key() == Qt.Key_Right
-    #     ):
-    #         print('Parent handling arrow keys')
-    #         return True
-    #     return QWidget.event(self, event)
+            elif event.key() == Qt.Key_Left:
+                print('Mainwindow handling left')
+                self.change_slider_position(fast_forward=False)
+
+            elif event.key() == Qt.Key_Right:
+                print('Mainwindow handling right')
+                self.change_slider_position(fast_forward=True)
+                
+        return super().event(event)
+    
+    
+    
 
     def eventFilter(self, object, event):
         """
@@ -1237,8 +1251,8 @@ class MainWindow(QMainWindow):
             #     if isinstance(object, Notification):
             #         object.destroy()
 
-        elif event.type() == QtCore.QEvent.MouseButtonPress and isinstance(object, CustomListWidget):
-            return True
+        # elif event.type()==QtCore.QEvent.MouseButtonPress and isinstance(object, CustomListWidget):
+        #     return True
 
         return super().eventFilter(object, event)
 
@@ -1267,47 +1281,38 @@ class MainWindow(QMainWindow):
         close_accept = close.addButton('Yes', QtWidgets.QMessageBox.AcceptRole)
         close.exec()  # Necessary for property-based API
         if close.clickedButton() == close_accept:
+            self.showMinimized()
             self.trayIcon.setVisible(False)
 
             #* Delete temp folder
             media_download_path = self.get_media_download_path()
             if self.cb_delete_on_exit.isChecked():
                 shutil.rmtree(media_download_path, ignore_errors=True)
+            guisave(self, self.my_settings, self.objects_to_exclude)
             try:
+                self.player.pause()
                 self.scraper.stop_scraping()
             except:
                 pass
-            guisave(self, self.my_settings, self.objects_to_exclude)
             event.accept()
         else:
             event.ignore()
 
-    def keyPressEvent(self, event):
-        """
-        Reimplements ``keyPressEvent``.
-        """
-        #* Control media playing through arrows and spacebar
+    # def keyPressEvent(self, event):
+    #     """
+    #     Reimplements ``keyPressEvent``.
+    #     """
+    #     #* Control media playing through arrows and spacebar
 
-        # TODO left and right only work properly
-        # AFTER clicking on any video manually
-        # not with up and down keys
-        if event.key() == Qt.Key_Left:
-            self.change_slider_position(fast_forward=False)
+    #     # TODO left and right only work properly AFTER clicking on any video manually
+    #     # not with up and down keys
 
-        elif event.key() == Qt.Key_Right:
-            self.change_slider_position(fast_forward=True)
+    #     # elif event.key() == Qt.Key_Down:
+    #     #     print("Key_Down pressed")
+    #     #     self.on_next_song()
 
-
-        # elif event.key() == Qt.Key_Up:
-        #     print("Key_Up pressed")
-        #     self.on_previous_song()
-
-        # elif event.key() == Qt.Key_Down:
-        #     print("Key_Down pressed")
-        #     self.on_next_song()
-
-        # else:
-        #     return False
+    #     # else:
+    #     #     return False
 
     #####???##################################################
     #####??? END OF MAINWINDOW

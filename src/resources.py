@@ -16,6 +16,8 @@
 # yapf: disable
 
 from pathlib import Path
+import time
+import re
 import sys
 
 
@@ -31,17 +33,42 @@ def get_path(relative_path):
     return base_path / rel_path
 
 
-def get_sec(my_time):
+def get_timestamp_from_relative_time(rel_time: str):
+    """Return a timestamp from a relative ``rel_time``, e.g. ``3 minutes ago``."""
+    now = time.time()
+    if re.findall('[0-9]+', rel_time):
+        relative_time = int(re.findall('[0-9]+', rel_time)[0])
+        if 'second' in rel_time:
+            timestamp = now - relative_time
+        elif 'minute' in rel_time:
+            timestamp = now - relative_time * 60
+        elif 'hour' in rel_time:
+            timestamp = now - relative_time * 60 * 60
+        elif 'day' in rel_time:
+            timestamp = now - relative_time * 60 * 60 * 24
+        elif 'week' in rel_time:
+            timestamp = now - relative_time * 60 * 60 * 24 * 7
+        elif 'month' in rel_time:
+            timestamp = now - relative_time * 60 * 60 * 24 * 7 * 30
+        else:
+            timestamp = now
+    else:
+        timestamp = now
+    return int(timestamp)
+
+def get_sec_from_hhmmss(my_time: str):
     """
     Return seconds from hh:mm:ss format.
     """
-    if ":" in my_time:
-        try:
-            h, m, s = my_time.split(':')
-        except:
-            h=0
-            m, s = my_time.split(':')
-        return int(h) * 3600 + int(m) * 60 + int(s)
+    if my_time.count(":") == 1:
+        h=0
+        m, s = my_time.split(':')
+    elif my_time.count(":") == 2:
+        h, m, s = my_time.split(':')
+    else:
+        return None  
+        
+    return int(h) * 3600 + int(m) * 60 + int(s)
 
 class MyIcons(object):
     """

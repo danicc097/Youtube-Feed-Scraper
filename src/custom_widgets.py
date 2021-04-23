@@ -19,7 +19,6 @@ from PyQt5.QtCore import (
     QSize, QTimer, QVariantAnimation, Qt, QUrl, pyqtProperty, pyqtSignal, pyqtSlot
 )
 from PyQt5.QtGui import (QBrush, QColor, QFont, QIcon, QImage, QMouseEvent, QPainter, QPainterPath, QPaintEvent, QPen, QPixmap)
-from PyQt5.QtNetwork import (QNetworkAccessManager, QNetworkReply, QNetworkRequest)
 from PyQt5.QtWidgets import (
     QApplication, QCheckBox, QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout, QLabel, QLayout,
     QListWidgetItem, QMainWindow, QPushButton, QScrollArea, QSizePolicy, QSystemTrayIcon, QToolButton, QVBoxLayout,
@@ -34,7 +33,7 @@ class Spoiler(QWidget):
     http://stackoverflow.com/questions/32476006/how-to-make-an-expandable-collapsable-section-widget-in-qt
     """
     def __init__(self, parent=None, title='', animationDuration=300, ref_parent=None, font=None):
-        super(Spoiler, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.ref_parent = ref_parent
         self.animationDuration = animationDuration
         self.toggleAnimation = QtCore.QParallelAnimationGroup()
@@ -133,7 +132,7 @@ class CustomFrame(QFrame):
     Material design inspired styled frame.
     """
     def __init__(self, parent=None, ref_parent=None, **kwargs):
-        super(QFrame, self).__init__(parent, **kwargs)
+        super().__init__(parent, **kwargs)
         self.border_radius = 6
         self.setStyleSheet(
             "color: rgb(0, 0, 0);"  #text color
@@ -171,7 +170,7 @@ class CustomVerticalFrame(QFrame):
     Material design inspired styled frame.
     """
     def __init__(self, parent=None, ref_parent=None, **kwargs):
-        super(QFrame, self).__init__(parent, **kwargs)
+        super().__init__(parent, **kwargs)
 
         self.border_radius = 15
         self.setStyleSheet(
@@ -224,7 +223,7 @@ class Notification(QWidget):
     Transparent widget to be used as a container.
     """
     def __init__(self, parent=None, ref_parent=None, **kwargs):
-        super(QWidget, self).__init__(parent=None, **kwargs)
+        super().__init__(parent=None, **kwargs)
         self.ref_parent = ref_parent
         # popup will hide when clicked outside
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
@@ -345,6 +344,8 @@ class CustomQWidget(QWidget):
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
         painter.setRenderHint(QtGui.QPainter.HighQualityAntialiasing, True)
         painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
+
+        #* Rounded rectangle card style
         rect = QtCore.QRectF(self.rect())
         painter_path = QtGui.QPainterPath()
         painter_path.addRoundedRect(rect, self.border_radius, self.border_radius)
@@ -572,21 +573,49 @@ class CustomListWidget(QtWidgets.QListWidget):
         super().__init__(parent,**kwargs)
         self.viewport().installEventFilter(ref_parent)
         self.installEventFilter(ref_parent)
+        self.keys_to_ignore = (Qt.Key_Up, Qt.Key_Down, Qt.Key_Space)
 
-    # def event(self, event):
-    #     if (event.type() == QtCore.QEvent.KeyPress) and (
-    #         event.key() == Qt.Key_Up or
-    #         event.key() == Qt.Key_Down
-    #         ):
-    #         print('Parent handling Up')
-    #         return True
-    #     return QWidget.event(self, event)
+
+    def event(self, event):
+        if (event.type() == QtCore.QEvent.KeyPress) and event.key() in self.keys_to_ignore:
+            print('CustomListWidget says: Parent handling keys')
+            return True
+        return super().event(event)
 
     def keyPressEvent(self, key_event):
         """
         Catch key presses to ignore.
         """
-        if key_event.key() in (Qt.Key_Up, Qt.Key_Down):
+        if key_event.key() in self.keys_to_ignore:
             # self.event(event)
-            return
+            return True
         return super().keyPressEvent(key_event)
+    
+    
+class CustomSlider(QtWidgets.QSlider):
+    """
+    ``QSlider`` with disabled key presses to avoid conflicts.
+    """
+    def __init__(self, parent=None, ref_parent=None, **kwargs):
+        super().__init__(parent,**kwargs)
+        # self.installEventFilter(ref_parent)
+        self.keys_to_ignore = (Qt.Key_Left, Qt.Key_Right)
+
+
+    def event(self, event):
+        if (event.type() == QtCore.QEvent.KeyPress) and event.key() in self.keys_to_ignore:
+            print('CustomSlider says: Parent handling keys')
+            return True
+        return super().event(event)
+
+    def keyPressEvent(self, key_event):
+        """
+        Catch key presses to ignore.
+        """
+        if key_event.key() in self.keys_to_ignore:
+            # self.event(event)
+            return True
+        return super().keyPressEvent(key_event)    
+    
+    
+    
