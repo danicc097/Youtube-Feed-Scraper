@@ -43,7 +43,7 @@ from .networking import CustomNetworkManager, Sender
 from .custom_threading import Worker, WorkerSignals
 from .resources import MyIcons, get_path, get_sec
 from .save_restore import guirestore, guisave
-from .youtube_scraper import get_videos_from_feed,Video
+from .youtube_scraper import Video, YoutubeScraper
 
 # if __debug__:
 #     print("IN DEBUG MODE\n"*10)
@@ -170,8 +170,8 @@ class MainWindow(QMainWindow):
 
         #* Temporary video downloads folder
         self.temp_dir = tempfile.mkdtemp()
-        self.media_download_path=self.temp_dir
-        self.max_video_duration=500
+        self.media_download_path = self.temp_dir
+        self.max_video_duration = 9999
         print(self.temp_dir)
 
         ##############?##############?##############?##############?
@@ -280,27 +280,27 @@ class MainWindow(QMainWindow):
         self.cb_user_temp_folder = QCheckBox("Use custom temporary download folder", objectName="cb_user_temp_folder")
         self.media_download_path = QLineEdit(
             r"D:\Desktop\TEST_DOWNLOADS", # TODO replace to "Choose a different download folder",
-            objectName="media_download_path",
-            enabled=False,
-            readOnly=True,
+            objectName = "media_download_path",
+            enabled    = False,
+            readOnly   = True,
             )
         # TODO add import button
         self.cb_user_temp_folder.toggled.connect(self.media_download_path.setEnabled)
 
         self.cb_max_video_date = QCheckBox("Set oldest video date to download", objectName="cb_max_video_date")
         self.max_video_date_calendar = CustomDateEdit(
-            sizePolicy=sizePolicy,
-            enabled = False,
-            objectName="max_video_date_calendar",
+            sizePolicy = sizePolicy,
+            enabled    = False,
+            objectName = "max_video_date_calendar",
             )
         self.cb_max_video_date.toggled.connect(self.max_video_date_calendar.setEnabled)
 
         self.cb_max_video_number = QCheckBox("Set maximum videos to download", objectName="cb_max_video_number")
         self.max_video_number_spinbox = QSpinBox(
-            sizePolicy=sizePolicy,
-            enabled = False,
-            objectName="max_video_number_spinbox",
-            maximum=9999
+            sizePolicy = sizePolicy,
+            enabled    = False,
+            objectName = "max_video_number_spinbox",
+            maximum    = 9999
             )
         self.cb_max_video_number.toggled.connect(self.max_video_number_spinbox.setEnabled)
 
@@ -331,7 +331,7 @@ class MainWindow(QMainWindow):
             objectName="max_video_duration_spinbox",
             )
         self.cb_max_video_duration.toggled.connect(self.max_video_duration_spinbox.setEnabled)
-
+        self.max_video_duration_spinbox.valueChanged.connect(self.update_max_video_duration)
         hLayout_2a=QHBoxLayout()
         hLayout_2a.addWidget(self.cb_max_video_duration)
         hLayout_2a.addWidget(self.max_video_duration_spinbox)
@@ -359,10 +359,10 @@ class MainWindow(QMainWindow):
         """
         Initializes ``QMediaPlayer``.
         """
-        self.player = QMediaPlayer()
-        self.playlist = QMediaPlaylist()
-        self.was_paused = False
-        self.is_playing = False
+        self.player       = QMediaPlayer()
+        self.playlist     = QMediaPlaylist()
+        self.was_paused   = False
+        self.is_playing   = False
         self.current_item = None
 
         self.player.mediaStatusChanged.connect(self.on_media_status_changed)
@@ -524,7 +524,7 @@ class MainWindow(QMainWindow):
             sizePolicy = size_policy,
             styleSheet = "border: none",
             clicked    = self.on_next_song,
-            shortcut   = Qt.Key_Down, 
+            shortcut   = Qt.Key_Down,
         )
 
         spacerItem = QtWidgets.QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -587,6 +587,7 @@ class MainWindow(QMainWindow):
         """
         if worker == "populate_worker":
             populate_worker = Worker(self.populate_video_list)
+            populate_worker.signals.error.connect(self.on_scraper_error)
             self.threadpool.start(populate_worker)
         elif worker == "video_download":
             video = kwargs.pop('video')
@@ -600,6 +601,13 @@ class MainWindow(QMainWindow):
                     self.threadpool.start(yt_dl_worker)
                 #TODO if not self.is_downloaded -> gray out
 
+    def on_scraper_error(self, error):
+        exctype, value, traceback = error
+        QtWidgets.QMessageBox.critical(self, 'Error', \
+            f"Could not find a valid video feed in source:\n\n {exctype}\n\n{value}"
+        )
+
+
     def video_downloader(self, video: Video):
         """
         Starts a parallel execution to download the given ``Video`` instance.
@@ -610,18 +618,23 @@ class MainWindow(QMainWindow):
         """
         Triggers the main scraping workflow.
         """
-        self.listVideos.clear()
+        try:
+            self.listVideos.clear()
+            self.scraper.stop_scraping()
+            self.signal.sync_icon.emit("", True)
+        except:
+            pass
         self.signal.sync_icon.emit("Loading YouTube data", False)
         now = time.time()
         self.max_video_date = self.max_video_date_calendar.dateTime().toSecsSinceEpoch()
 
         max_date = self.max_video_date if self.cb_max_video_date.isChecked() else now
         max_videos = self.max_video_number_spinbox.value() if self.cb_max_video_number.isChecked() else 999
-        self.my_videos, error = get_videos_from_feed(max_videos, max_date)
-
-        if error:
-            QtWidgets.QMessageBox.critical(self, 'Error', \
-                f"Could not find a valid video feed in source: {error}")
+        self.scraper = YoutubeScraper(max_videos, max_date)
+        # TODO get from a qlineedit
+        # self.scraper.user_data = ???.text()
+        self.my_videos = self.scraper.get_videos_from_feed()
+        # self.my_videos, error = get_videos_from_feed(max_videos, max_date)
 
         for id, video in self.my_videos.items():
             self.signal.add_listitem.emit(video)
@@ -642,38 +655,38 @@ class MainWindow(QMainWindow):
         frameLayout.setAlignment(QtCore.Qt.AlignTop)
 
         download_button = CustomImageButton(
-            icon=ICONS.cloud_download_lblue,
-            icon_on_click=ICONS.cloud_download_white,
-            icon_size=20,
-            icon_max_size=30,
-            custom_icons=ICONS, # allow download icon update from Video class
+            icon          = ICONS.cloud_download_lblue,
+            icon_on_click = ICONS.cloud_download_white,
+            icon_size     = 20,
+            icon_max_size = 30,
+            custom_icons  = ICONS,                      # allow download icon update from Video class
         )
         self.apply_effect_on_hover(download_button)
         frameLayout.addWidget(download_button)
 
         fav_button = CustomImageButton(
-            icon=ICONS.favorite_lblue,
-            icon_on_click=ICONS.favorite_white,
-            icon_size=20,
-            icon_max_size=30,
+            icon          = ICONS.favorite_lblue,
+            icon_on_click = ICONS.favorite_white,
+            icon_size     = 20,
+            icon_max_size = 30,
         )
         self.apply_effect_on_hover(fav_button)
         frameLayout.addWidget(fav_button)
 
         block_button = CustomImageButton(
-            icon=ICONS.block_lblue,
-            icon_on_click=ICONS.block_white,
-            icon_size=20,
-            icon_max_size=30,
+            icon          = ICONS.block_lblue,
+            icon_on_click = ICONS.block_white,
+            icon_size     = 20,
+            icon_max_size = 30,
         )
         self.apply_effect_on_hover(block_button)
         frameLayout.addWidget(block_button)
 
         checkpoint_button = CustomImageButton(
-            icon=ICONS.schedule_lblue,
-            icon_on_click=ICONS.schedule_white,
-            icon_size=20,
-            icon_max_size=30,
+            icon          = ICONS.schedule_lblue,
+            icon_on_click = ICONS.schedule_white,
+            icon_size     = 20,
+            icon_max_size = 30,
         )
         self.apply_effect_on_hover(checkpoint_button)
         frameLayout.addWidget(checkpoint_button)
@@ -704,6 +717,9 @@ class MainWindow(QMainWindow):
         item.setSizeHint(item_widget.sizeHint())
         self.listVideos.addItem(item)
         self.listVideos.setItemWidget(item, item_widget)
+
+    def update_max_video_duration(self, value):
+        self.max_video_duration = value
 
     def get_media_download_path(self):
         """
@@ -1252,12 +1268,15 @@ class MainWindow(QMainWindow):
         close.exec()  # Necessary for property-based API
         if close.clickedButton() == close_accept:
             self.trayIcon.setVisible(False)
-            
+
             #* Delete temp folder
             media_download_path = self.get_media_download_path()
             if self.cb_delete_on_exit.isChecked():
                 shutil.rmtree(media_download_path, ignore_errors=True)
-            
+            try:
+                self.scraper.stop_scraping()
+            except:
+                pass
             guisave(self, self.my_settings, self.objects_to_exclude)
             event.accept()
         else:

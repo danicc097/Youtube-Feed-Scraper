@@ -86,8 +86,8 @@ class Spoiler(QWidget):
 
         self.toggleButton.clicked.connect(_start_animation)
 
-            
-        
+
+
     def apply_shadow_effect(self, color=QColor(50, 50, 50), blur_radius=10, offset=2):
         """
         Same widget graphic effect instance can't be used more than once
@@ -263,7 +263,7 @@ class Notification(QWidget):
             valueChanged=self.on_valueChanged,
         )
         self._animation.setEasingCurve(QEasingCurve.InCubic)
-        
+
         if self._animation.state() != QtCore.QAbstractAnimation.Running:
             self._animation.start()
 
@@ -279,9 +279,17 @@ class CustomQWidget(QWidget):
     """
     QWidget to be added as an item's widget (e.g. a ``QListWidgetItem``'s widget).
     """
-    def __init__(self, parent=None, ref_parent=None, base_color=QtGui.QColor(235, 235, 235), **kwargs):
+    def __init__(
+        self,
+        parent=None,
+        ref_parent=None,
+        base_color=QtGui.QColor(235, 235, 235),
+        border_radius=15,
+        **kwargs,
+    ):
         super().__init__(parent, **kwargs)
         self.ref_parent = ref_parent
+        self.border_radius = border_radius
         self.shadow_effects = {}
         self.shadow_effects_counter = 0
 
@@ -339,8 +347,7 @@ class CustomQWidget(QWidget):
         painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
         rect = QtCore.QRectF(self.rect())
         painter_path = QtGui.QPainterPath()
-        border_radius = 20
-        painter_path.addRoundedRect(rect, border_radius, border_radius)
+        painter_path.addRoundedRect(rect, self.border_radius, self.border_radius)
         painter.setOpacity(0.4)  # before filling
         painter.fillPath(painter_path, QtGui.QBrush(self.color))
         painter.setPen(Qt.NoPen)
@@ -555,17 +562,17 @@ class CustomDateEdit(QtWidgets.QDateEdit):
         super().__init__(parent, calendarPopup=True,**kwargs)
         today = QtCore.QDate.currentDate()
         self.setDate(today)
-        
-        
+
+
 class CustomListWidget(QtWidgets.QListWidget):
     """
     ``QListWidget`` with disabled key presses to avoid conflicts.
     """
     def __init__(self, parent=None, ref_parent=None, **kwargs):
-        super().__init__(parent,**kwargs)  
+        super().__init__(parent,**kwargs)
         self.viewport().installEventFilter(ref_parent)
         self.installEventFilter(ref_parent)
-        
+
     # def event(self, event):
     #     if (event.type() == QtCore.QEvent.KeyPress) and (
     #         event.key() == Qt.Key_Up or
