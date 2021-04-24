@@ -383,7 +383,8 @@ class CustomQWidget(QWidget):
         # img = QPixmap(img)
         # important to use a SmoothTransformation
         thumbnail_width = self.thumbnailQLabel.width()
-        img = img.scaledToWidth(thumbnail_width, Qt.SmoothTransformation)
+        thumbnail_height = self.thumbnailQLabel.height()
+        img = img.scaled(thumbnail_width, thumbnail_height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.thumbnailQLabel.setPixmap(img)
         self.thumbnailQLabel.setAlignment(Qt.AlignTop)
         self.thumbnailQLabel.setContentsMargins(0, 0, 20, 0)

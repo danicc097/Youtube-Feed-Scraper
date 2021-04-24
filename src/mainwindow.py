@@ -22,6 +22,7 @@ import threading
 import time
 import traceback
 from pathlib import Path
+from PyQt5.sip import delete
 
 import qtmodern.styles
 import qtmodern.windows
@@ -584,7 +585,7 @@ class MainWindow(QMainWindow):
             if isinstance(video, Video):
                 # TODO fix duration not scraped correctly.
                 # wait until info_dict is downloaded and compare then
-                if not isinstance(video.duration, int):
+                if video.duration == 0:
                     #? ignores unreleased videos (premiere, etc)
                     pass
                 elif video.duration < self.max_video_duration:
@@ -643,15 +644,27 @@ class MainWindow(QMainWindow):
         
         # TODO get chrome data folder from a qlineedit
         # self.scraper.user_data = ???.text()
+        
         self.my_videos = self.scraper.get_videos_from_feed()
-        # self.my_videos, error = get_videos_from_feed(max_videos, max_date)
 
+        delete_later = []
         for id, video in self.my_videos.items():
+            #* extremely slow youtube-dl function. 
+            try:
+                self.my_videos[id].download_video_metadata()
+            except:
+                #* ignore Premieres, etc
+                delete_later.append(id)
+                continue
+            
             # TODO process videos here, not in scraper module
             self.signal.add_listitem.emit(video)
             self.signal.start_video_download.emit(video)
             QApplication.processEvents()  # QRunnable not worth it
 
+        for id in delete_later:
+            del self.my_videos[id]
+            
         self.signal.sync_icon.emit("", True)
 
 

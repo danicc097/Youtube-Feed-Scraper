@@ -49,6 +49,14 @@ class MyLogger(object):
         print(msg)
 
 
+class InvalidUserDataFolder(Exception):
+    pass
+
+
+class MissingHtmlElements(Exception):
+    pass
+
+
 class Video():
     """
     Store video information for ease of use. 
@@ -61,9 +69,7 @@ class Video():
         time=time.time(),
         author="",
         author_id="",
-        duration="",
-        thumbnail="",
-        author_thumbnail="",
+        duration=0,
     ):
         self.id               = str(id)
         self.url              = "https://www.youtube.com/watch?v=" + self.id
@@ -71,7 +77,7 @@ class Video():
         self.time             = int(time)
         self.author           = str(author)
         self.author_id        = str(author_id)
-        self.duration         = str(duration)
+        self.duration         = int(duration) # hh:mm:ss format
         self.thumbnail        = None
         self.author_thumbnail = None
         self.download_path    = None
@@ -134,11 +140,6 @@ class Video():
     def _download_fail(self):
         self.download_button.icon = "download_fail"
 
-class InvalidUserDataFolder(Exception):
-    pass
-
-class MissingHtmlElements(Exception):
-    pass
 
 class YoutubeScraper():
     """
@@ -161,7 +162,7 @@ class YoutubeScraper():
         self._user_data = user_data
 
 
-    def get_videos_from_feed(self, from_local_dir=None) -> Dict[str, Video]:
+    def get_videos_from_feed(self, local_dir=None) -> Dict[str, Video]:
         """
         Return a dictionary of ``Video`` instances accessed by ``id``.
         """
@@ -171,22 +172,27 @@ class YoutubeScraper():
         if not driver_setup_success:
             raise InvalidUserDataFolder("Select a valid browser user data folder.")
         print('\nRETRIEVING YOUTUBE DATA...\n')
-
-        #* create new tab
-        self.driver.execute_script("window.open('about:blank','_blank');")
-        new_tab = self.driver.window_handles[1]
-        self.driver.switch_to.window(new_tab)
-        self.driver.get('https://www.youtube.com/feed/subscriptions')
-        self.source = self.driver.page_source
         
+        if local_dir:
+            with open(local_dir, "r", encoding="utf8") as f:
+                self.source = f.read()
+        else:
+            #* create new tab
+            self.driver.execute_script("window.open('about:blank','_blank');")
+            new_tab = self.driver.window_handles[1]
+            self.driver.switch_to.window(new_tab)
+            self.driver.get('https://www.youtube.com/feed/subscriptions')
+            time.sleep(8)
+            self.source = self.driver.page_source
+        
+        
+        
+        # TODO all author profile thumbnails in sidebar>subscriptions
         # wait = WebDriverWait(self.driver, 15)
         # wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '#endpoint')))
         # # wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="endpoint"]/tp-yt-paper-item')))
         # self.driver.find_element_by_css_selector('#endpoint').click() 
-        
         # self.extract_author_thumbnails()
-        
-        time.sleep(4)
 
         self.get_videos_metadata()
 
@@ -255,24 +261,19 @@ class YoutubeScraper():
 
         self.my_videos = {}
         
-        for upload_date, video_link, author, author_channel, video_duration, video_title in zip(
-            upload_dates, video_links, authors, author_channels, video_durations, video_titles
-        ):
+        for i in range(len(video_links)):
             if len(self.my_videos) < self.max_videos:
-                print(self.max_videos, "and cuerrent dict len is: " ,len(self.my_videos))
-                video_id = video_link.split("/watch?v=")[-1].split("&")[0]
-                # print(upload_date, video_link, author, author_channel, video_duration, video_title)
-
+                # print(self.max_videos, "and current dict len is: " ,len(self.my_videos))
+                
+                video_id = video_links[i].split("/watch?v=")[-1].split("&")[0]
                 self.my_videos[video_id] = Video(
                     id        = video_id,
-                    title     = video_title,
-                    author    = author,
-                    author_id = author_channel,
-                    # duration  = get_sec_from_hhmmss(video_duration),
-                    time      = get_timestamp_from_relative_time(upload_date),
-
+                    title     = video_titles[i],
+                    author    = authors[i],
+                    author_id = author_channels[i],
+                    duration  = get_sec_from_hhmmss(video_durations[i]),
+                    time      = get_timestamp_from_relative_time(upload_dates[i]),
                 )
-                self.my_videos[video_id].download_video_metadata()
                 
                 # TODO RETURN self.my_videos AND DO THIS IN GUI, PROCESSING EVENTS
                 # alternative: 

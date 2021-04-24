@@ -66,7 +66,7 @@ def get_sec_from_hhmmss(my_time: str):
     elif my_time.count(":") == 2:
         h, m, s = my_time.split(':')
     else:
-        return None  
+        return 0  
         
     return int(h) * 3600 + int(m) * 60 + int(s)
 

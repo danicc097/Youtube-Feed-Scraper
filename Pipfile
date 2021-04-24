@@ -15,6 +15,7 @@ selenium = "*"
 webdriver-manager = "*"
 beautifulsoup4 = "*"
 lxml = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.8"
