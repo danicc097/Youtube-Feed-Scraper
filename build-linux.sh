@@ -1,12 +1,15 @@
 specPath=YouTube-Scraper-linux.spec
 if test -f "$specPath";
-then 
+then
+    pytest tests
     pipenv run pyinstaller YouTube-Scraper-linux.spec \
     --noconfirm \
     --clean
 else 
+    pytest tests
     pipenv run pyi-makespec main.py \
     --onefile \
+    --noconsole \
     --name "YouTube-Scraper-linux" \
     --paths="src/" \
     --icon='main.ico' \
@@ -17,7 +20,8 @@ else
     --exclude-module numpy 
 fi
 
-#* edit qtmodern data as per https://github.com/gmarull/qtmodern/issues/34
+#? QT MODERN PACKAGE
+#? edit qtmodern data as per https://github.com/gmarull/qtmodern/issues/34
 
 # import importlib
 # from pathlib import Path

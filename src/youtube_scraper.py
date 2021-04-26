@@ -188,10 +188,7 @@ class YoutubeScraper():
         
         
         # TODO all author profile thumbnails in sidebar>subscriptions
-        # wait = WebDriverWait(self.driver, 15)
-        # wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '#endpoint')))
-        # # wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="endpoint"]/tp-yt-paper-item')))
-        # self.driver.find_element_by_css_selector('#endpoint').click() 
+
         # self.extract_author_thumbnails()
 
         self.get_videos_metadata()
@@ -228,6 +225,7 @@ class YoutubeScraper():
         # options.add_argument("--disable-gpu")  # applicable to windows os only
         options.add_argument("--disable-dev-shm-usage")  # overcome limited resource problems
         options.add_argument("--disable-extensions")
+        options.add_argument('--window-size=1920,1080') #enable clicking in headles
         options.add_argument(r'--user-data-dir=' + self.user_data)
         options.add_argument("--headless")
         try:
@@ -282,15 +280,37 @@ class YoutubeScraper():
                 break
         
     def extract_author_thumbnails(self):
+        """
+        Extracts channel profile pictures from the sidebar subscriptions list.
+        """
+        wait = WebDriverWait(self.driver, 5)
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '#endpoint')))
+        
+        #* the sidebar is opened by default. This hides the subscriptions button
+        wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="guide-icon"]')))
+        self.driver.find_element_by_xpath('//*[@id="guide-icon"]').click() 
+        
+        wait.until(EC.presence_of_element_located( \
+            (By.XPATH, '//*[@id="endpoint"]//*[@attribute="enable-empty-style-class"]'))
+                )
+        self.driver.find_element_by_xpath( \
+            '/*[@id="endpoint"]//*[@attribute="enable-empty-style-class"]').click() 
+        
+        
         soup = BeautifulSoup(self.source, "html.parser")
         dom = etree.HTML(str(soup))
         self.thumbnails = dom.xpath('//*[@id="img"]/./@src')  
-        self.thumbnails_authors = dom.xpath('//*[@id="endpoint"]/text()')
-        print("len of subs thumbnails pictures: ", len(self.thumbnails), len(self.thumbnails_authors) )
-        for tb, tb_autor in self.thumbnails, self.thumbnails_authors:
+        self.thumbnails_authors = dom.xpath('//*[@id="endpoint"]/@title')
+        print("\n\n")
+        print("len of subs thumbnails pictures: ", len(self.thumbnails), len(self.thumbnails_authors))
+        print("\n\n")
+        for tb, tb_autor in zip(self.thumbnails, self.thumbnails_authors):
             print(tb, " - ", tb_autor)  
 
     def extract_video_elements(self):
+        """
+        Parses the page source to get relevant video information.
+        """
         soup = BeautifulSoup(self.source, "html.parser")
         dom = etree.HTML(str(soup))
 

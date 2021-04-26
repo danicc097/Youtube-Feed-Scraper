@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+
 import ctypes
 import os
 import shutil
@@ -127,10 +128,8 @@ class NewWindow(QMainWindow):
         """
         for window in self.window_list:
             if len(window.runners) > 0:
-                #TODO not implemented in class
                 for runner in window.runners: runner.kill()
 
-# TODO kill runners on exit. stop conversion from yt_dl
 class MainWindow(QMainWindow):
     """
     Main application window.
@@ -661,6 +660,7 @@ class MainWindow(QMainWindow):
             self.signal.add_listitem.emit(video)
             self.signal.start_video_download.emit(video)
             QApplication.processEvents()  # QRunnable not worth it
+            
 
         for id in delete_later:
             del self.my_videos[id]
@@ -749,10 +749,12 @@ class MainWindow(QMainWindow):
             media_download_path = self.media_download_path.text()
         return media_download_path
 
+    # TODO this begs refactoring / reimplement mousePressEvent 
     def on_list_item_left_click(self, item: QListWidgetItem):
         """
         Called when a ``QListWidget`` item is left clicked.
         """
+
         if item is None: return
 
         #* Return the rest of list items to their original state
@@ -829,7 +831,7 @@ class MainWindow(QMainWindow):
         """
         self.horizontalSlider.setValue(position)
 
-        # TODO
+        # TODO autoplay next song that has been downloaded
         # if position == self.player.duration():
         #     self.on_next_song()
 
@@ -1221,7 +1223,6 @@ class MainWindow(QMainWindow):
     #####???##################################################
     #####??? EVENTS
     #####???##################################################
-    keys_to_ignore = (Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down, Qt.Key_Space)
     
     def event(self, event):
         if event.type() == QtCore.QEvent.KeyPress:
@@ -1239,9 +1240,6 @@ class MainWindow(QMainWindow):
                 self.change_slider_position(fast_forward=True)
                 
         return super().event(event)
-    
-    
-    
 
     def eventFilter(self, object, event):
         """
@@ -1310,22 +1308,6 @@ class MainWindow(QMainWindow):
             event.accept()
         else:
             event.ignore()
-
-    # def keyPressEvent(self, event):
-    #     """
-    #     Reimplements ``keyPressEvent``.
-    #     """
-    #     #* Control media playing through arrows and spacebar
-
-    #     # TODO left and right only work properly AFTER clicking on any video manually
-    #     # not with up and down keys
-
-    #     # elif event.key() == Qt.Key_Down:
-    #     #     print("Key_Down pressed")
-    #     #     self.on_next_song()
-
-    #     # else:
-    #     #     return False
 
     #####???##################################################
     #####??? END OF MAINWINDOW

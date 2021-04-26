@@ -6,6 +6,7 @@
 <p align="center">
   <br>
   <a href="https://github.com/danicc097/Youtube-Feed-Scraper/blob/main/LICENSE"><img alt="undefined" src=".github/GPLv3_badge.svg"></a>
+   <a><img alt="undefined" src=".github/interrogate_badge.svg"></a>
   <br>
 </p>
 
@@ -17,7 +18,9 @@
 - [Youtube Feed Scraper](#youtube-feed-scraper-1)
   - [Development](#development)
       - [Requirements](#requirements)
-  - [Features](#features)
+  - [Usage](#usage)
+    - [1. Dependencies](#1-dependencies)
+      - [Linux](#linux)
   - [WIPs](#wips)
 
 # Youtube Feed Scraper
@@ -45,14 +48,22 @@ To get started:
 3. Run the main program file with `pipenv run python main.py`
 4. To distribute using `PyInstaller`, the project can easily be built with `build-windows.ps1` or `build-linux.sh`.
 
-## Features
+## Usage
 
-TBD
+### 1. Dependencies
+
+#### Linux 
+
+``FFmpeg`` is required to convert videos to ``mp3``:
+
+``sudo apt-get install ffmpeg``
+
+``sudo apt install gstreamer1.0-plugins-good``
+
 
 ## WIPs
 
 ☑️ Include WIPs \
-⬜ Integrated browser \
 ⬜ Youtube API
 
 ---
