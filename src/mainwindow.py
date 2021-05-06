@@ -47,6 +47,24 @@ from .resources import MyIcons, get_path
 from .save_restore import guirestore, guisave
 from .youtube_scraper import Video, YoutubeScraper
 
+
+#* Attemp to fix chromedriver with noconsole flag
+# TODO show all consoles minimized by default / hidden
+
+import subprocess
+
+_original_constructor = subprocess.Popen.__init__
+
+def _patched_constructor (* args, ** kwargs):
+    for key in ('stdin','stdout','stderr'):
+        if key not in kwargs:
+            kwargs [key] = subprocess.PIPE
+    return _original_constructor (* args, ** kwargs)
+
+subprocess.Popen.__init__ = _patched_constructor
+
+
+
 # if __debug__:
 #     print("IN DEBUG MODE\n"*10)
 

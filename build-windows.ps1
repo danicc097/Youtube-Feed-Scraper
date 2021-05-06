@@ -17,16 +17,18 @@ else {
     pytest tests
     pipenv run pyi-makespec main.py `
         --onefile `
-        --noconsole `
         --name "YouTube-Scraper-windows" `
         --paths="src\" `
         --icon='main.ico' `
         --add-data "src\data\;src\data" `
         --hidden-import src `
-        --hidden-import qtmodern `
         --exclude-module cv2 `
         --exclude-module numpy 
 }
+
+#######################################
+# TODO noconsole flag breaks chromedriver 
+# for fix see https://stackoverflow.com/questions/41728959/how-to-capture-the-output-of-a-long-running-program-and-present-it-in-a-gui-in-p
 
 #######################################
 #? QT MODERN PACKAGE

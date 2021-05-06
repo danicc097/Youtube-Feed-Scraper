@@ -14,7 +14,6 @@ else
     --paths="src/" \
     --icon='main.ico' \
     --add-data "src/data/:src/data" \
-    --hidden-import qtmodern \
     --hidden-import src \
     --exclude-module cv2 \
     --exclude-module numpy 

@@ -18,6 +18,8 @@ def guisave(self, settings: QtCore.QSettings, objects_to_exclude=None):
     Saves GUI values to a QSettings file (.ini format). \n
     ``objects_to_exclude`` : Exclude objects to save by its objectName property. 
     """
+    
+    print("\n\nSAVING SETTINGS \n\n")
     try:
         childrens = self.findChildren(QtWidgets.QWidget)
         for children in childrens:
@@ -39,68 +41,100 @@ def guisave(self, settings: QtCore.QSettings, objects_to_exclude=None):
         pass
 
     for name, obj in inspect.getmembers(self):
-        if isinstance(obj, QWidget) and obj.objectName() not in objects_to_exclude:
-            if isinstance(obj, QComboBox):
-                try:
-                    name = obj.objectName()
-                    index = obj.currentIndex()
-                    text = obj.itemText(index)
-                    settings.setValue(name, text)
-                except:
-                    pass
+        try:
+            if isinstance(obj, QWidget) and obj.objectName() not in objects_to_exclude:
+                if isinstance(obj, QComboBox):
+                    try:
+                        name = obj.objectName()
+                        index = obj.currentIndex()
+                        text = obj.itemText(index)
+                        settings.setValue(name, text)
+                    except:
+                        pass
 
-            if isinstance(obj, QAction):
-                if obj.isCheckable():
-                    name = obj.objectName()
-                    state = obj.isChecked()
-                    settings.setValue(name, state)
+                if isinstance(obj, QAction):
+                    if obj.isCheckable():
+                        try:
+                            name = obj.objectName()
+                            state = obj.isChecked()
+                            settings.setValue(name, state)
+                        except:
+                            pass    
 
-            if isinstance(obj, QLineEdit):
-                name = obj.objectName()
-                value = obj.text()
-                print(name, value, "for ", obj)
-                settings.setValue(name, value)
-
-            if isinstance(obj, QCheckBox):
-                name = obj.objectName()
-                state = obj.checkState()
-                settings.setValue(name, state)
-
-            if isinstance(obj, QRadioButton):
-                name = obj.objectName()
-                state = obj.isChecked()
-                settings.setValue(name, state)
-
-            if isinstance(obj, QSpinBox):
-                name = obj.objectName()
-                value = obj.text()
-                settings.setValue(name, int(value))
-
-            if isinstance(obj, QDoubleSpinBox):
-                name = obj.objectName()
-                value = obj.text()
-                settings.setValue(name, float(value.replace(",", ".")))
-
-            if isinstance(obj, QGroupBox):
-                name = obj.objectName()
-                state = obj.isChecked()
-                settings.setValue(name, state)
-                
-            if isinstance(obj, QDateEdit):
-                name = obj.objectName()
-                value = obj.date()
-                settings.setValue(name, value)
-                
-            if isinstance(obj, QKeySequenceEdit):
-                name = obj.objectName()
-                key = obj.keySequence()
-                settings.setValue(name, key)  
-                
+                if isinstance(obj, QLineEdit):
+                    try:
+                        name = obj.objectName()
+                        value = obj.text()
+                        # print(name, value, "for ", obj)
+                        settings.setValue(name, value)
+                    except:
+                        pass   
+                    
+                if isinstance(obj, QCheckBox):
+                    try:
+                        name = obj.objectName()
+                        state = obj.checkState()
+                        settings.setValue(name, state)
+                    except:
+                        pass  
+                    
+                if isinstance(obj, QRadioButton):
+                    try:
+                        name = obj.objectName()
+                        state = obj.isChecked()
+                        settings.setValue(name, state)
+                    except:
+                        pass   
+                    
+                if isinstance(obj, QSpinBox):
+                    try:
+                        name = obj.objectName()
+                        value = obj.text()
+                        settings.setValue(name, int(value))
+                    except:
+                        pass   
+                    
+                if isinstance(obj, QDoubleSpinBox):
+                    try:
+                        name = obj.objectName()
+                        value = obj.text()
+                        settings.setValue(name, float(value.replace(",", ".")))
+                    except:
+                        pass   
+                    
+                if isinstance(obj, QGroupBox):
+                    try:
+                        name = obj.objectName()
+                        state = obj.isChecked()
+                        settings.setValue(name, state)
+                    except:
+                        pass   
+                                    
+                if isinstance(obj, QDateEdit):
+                    try:
+                        name = obj.objectName()
+                        value = obj.date()
+                        settings.setValue(name, value)
+                    except:
+                        pass   
+                                    
+                if isinstance(obj, QKeySequenceEdit):
+                    try:
+                        name = obj.objectName()
+                        key = obj.keySequence()
+                        settings.setValue(name, key)  
+                    except:
+                        pass   
+        except:
+            continue
+                                
     settings.sync()
 
 
 def guirestore(self, settings: QtCore.QSettings):  # sourcery no-metrics
     """Restores GUI values from a QSettings file (.ini format)"""
+    print("\n\nRESTORING SETTINGS \n\n")
+    
     try:
         childrens = self.findChildren(QtWidgets.QWidget)
         for children in childrens:
