@@ -175,6 +175,11 @@ class MainWindow(QMainWindow):
         self.shadow_effects = {}
         self.shadow_effects_counter = 0
 
+        # High res displays scaling
+        # TODO get rid of hard coded sizes
+        # TODO helper function to scale them from orig fullhd
+        os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
+
         #* QSettings
         self.config_is_set = 0
         self.save_to_runtimedir = False
