@@ -24,11 +24,11 @@ class WorkerSignals(QtCore.QObject):
 class Worker(QtCore.QRunnable):
     """
     Inherits from QRunnable to handle worker thread setup, signals and wrap-up.
-    ``param callback`` The function callback to run on this worker thread. Supplied args and
-                     kwargs will be passed through to the runner.
-    ``type callback`` function
-    ``param args`` Arguments to pass to the callback function
-    ``param kwargs`` Keywords to pass to the callback function
+    ``param callback``: The function callback to run on this worker thread. Supplied args and
+                        kwargs will be passed through to the runner.
+    ``type callback``: function
+    ``param args``: Arguments to pass to the callback function
+    ``param kwargs``: Keywords to pass to the callback function
     """
     def __init__(self, fn, *args, **kwargs):
         super(Worker, self).__init__()

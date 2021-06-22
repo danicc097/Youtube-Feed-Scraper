@@ -17,41 +17,41 @@
 import ctypes
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
 import time
 import traceback
 from pathlib import Path
-from PyQt5.sip import delete
 
 import qtmodern.styles
 import qtmodern.windows
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import (QByteArray, Qt, QUrl)
-from PyQt5.QtGui import (QColor, QFont, QIcon, QPixmap)
+from PyQt5.QtCore import QByteArray, Qt, QUrl
+from PyQt5.QtGui import QColor, QFont, QIcon, QPixmap
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer, QMediaPlaylist
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox,
                              QGraphicsDropShadowEffect, QGridLayout,
                              QHBoxLayout, QLabel, QLayout, QLineEdit,
-                             QListWidget, QListWidgetItem, QMainWindow, QSizePolicy, QSlider, QSpinBox,
-                             QSystemTrayIcon, QVBoxLayout,
-                             QWidget)
+                             QListWidget, QListWidgetItem, QMainWindow,
+                             QSizePolicy, QSlider, QSpinBox, QSystemTrayIcon,
+                             QVBoxLayout, QWidget)
+from PyQt5.sip import delete
 
-from .custom_widgets import (CustomFrame, CustomImageButton,
-                             CustomQWidget, CustomVerticalFrame, Notification,
-                             RoundLabelImage, Spoiler, CustomDateEdit, CustomListWidget, CustomSlider)
-from .networking import CustomNetworkManager, Sender
 from .custom_threading import Worker, WorkerSignals
+from .custom_widgets import (CustomDateEdit, CustomFrame, CustomImageButton,
+                             CustomListWidget, CustomQWidget, CustomSlider,
+                             CustomVerticalFrame, Notification,
+                             RoundLabelImage, Spoiler)
+from .networking import CustomNetworkManager, Sender
 from .resources import MyIcons, get_path
 from .save_restore import guirestore, guisave
 from .youtube_scraper import Video, YoutubeScraper
 
-
 #* Attemp to fix chromedriver with noconsole flag
 # TODO show all consoles minimized by default / hidden
 
-import subprocess
 
 _original_constructor = subprocess.Popen.__init__
 
@@ -287,7 +287,7 @@ class MainWindow(QMainWindow):
         vLayout_0.addWidget(self.list_settings)
 
         self.cb_delete_on_exit = QCheckBox("Delete download folder on exit", objectName="cb_delete_on_exit")
-        self.cb_notify_on_download = QCheckBox("Notify when all downloads finish", objectName="cb_delete_on_exit")
+        self.cb_notify_on_download = QCheckBox("Notify when all downloads finish", objectName="cb_notify_on_download")
         self.cb_user_temp_folder = QCheckBox("Use custom temporary download folder", objectName="cb_user_temp_folder")
         self.media_download_path = QLineEdit(
             r"D:\Desktop\TEST_DOWNLOADS", # TODO replace to "Choose a different download folder",
@@ -662,6 +662,7 @@ class MainWindow(QMainWindow):
         print("self.max_video_duration is_:", self.max_video_duration)
         max_date = self.max_video_date if self.cb_max_video_date.isChecked() else now
         max_videos = self.max_video_number_spinbox.value() if self.cb_max_video_number.isChecked() else 300
+        print(f"\nDate is now limited to: {max_date}\n")
         self.scraper = YoutubeScraper(max_videos, max_date)
         
         # TODO get chrome data folder from a qlineedit

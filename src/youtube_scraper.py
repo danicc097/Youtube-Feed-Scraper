@@ -21,6 +21,7 @@ from logging import info
 from sys import platform
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import selenium.webdriver.support.expected_conditions as EC
 from bs4 import BeautifulSoup
 from lxml import etree
 from selenium import webdriver
@@ -28,7 +29,6 @@ from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
-import selenium.webdriver.support.expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from youtube_dl import YoutubeDL
 
@@ -247,9 +247,11 @@ class YoutubeScraper():
         last_video_upload_date = get_timestamp_from_relative_time(upload_dates[-1])
         
         # check if enough data has been gathered:
-        while len(video_links) < self.max_videos and last_video_upload_date > self.max_date:
+        while len(video_links) < self.max_videos or last_video_upload_date > self.max_date:
             print("\nScrolling down.\n")
-            print(len(video_links))
+            print(f"New video links: {len(video_links)}")
+            print(f"{last_video_upload_date=}")
+            print(f"{self.max_date=}")
             self._scroll_down()
             time.sleep(5)
             self.source = self.driver.page_source
@@ -259,18 +261,23 @@ class YoutubeScraper():
 
         self.my_videos = {}
         
+        video_time = time.time()
         for i in range(len(video_links)):
-            if len(self.my_videos) < self.max_videos:
+            if len(self.my_videos) < self.max_videos and video_time > self.max_date:
                 # print(self.max_videos, "and current dict len is: " ,len(self.my_videos))
                 
                 video_id = video_links[i].split("/watch?v=")[-1].split("&")[0]
+                try:
+                    video_time = get_timestamp_from_relative_time(upload_dates[i]) 
+                except:
+                    video_time = time.time()
                 self.my_videos[video_id] = Video(
                     id        = video_id,
                     title     = video_titles[i],
                     author    = authors[i],
                     author_id = author_channels[i],
                     duration  = get_sec_from_hhmmss(video_durations[i]),
-                    time      = get_timestamp_from_relative_time(upload_dates[i]),
+                    time      = video_time,
                 )
                 
                 # TODO RETURN self.my_videos AND DO THIS IN GUI, PROCESSING EVENTS
@@ -321,12 +328,12 @@ class YoutubeScraper():
         video_durations = dom.xpath('//*[@id="overlays"]/ytd-thumbnail-overlay-time-status-renderer/span/text()')
         video_titles    = dom.xpath('//*[@id="video-title"]/./@title')
 
-        print(len(upload_dates))
-        print(len(video_links))
-        print(len(authors))
-        print(len(author_channels))
-        print(len(video_durations))
-        print(len(video_titles))
+        print("len(upload_dates): ", len(upload_dates))
+        print("len(video_links): ", len(video_links))
+        print("len(authors): ", len(authors))
+        print("len(author_channels): ", len(author_channels))
+        print("len(video_durations): ", len(video_durations))
+        print("len(video_titles): ", len(video_titles))
 
         # if not len(set(
         #         [
