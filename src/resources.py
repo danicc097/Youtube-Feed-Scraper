@@ -15,10 +15,10 @@
 
 # yapf: disable
 
-from pathlib import Path
-import time
 import re
 import sys
+import time
+from pathlib import Path
 
 
 def get_path(relative_path):
@@ -60,11 +60,12 @@ def get_sec_from_hhmmss(my_time: str):
     """
     Return seconds from hh:mm:ss format.
     """
-    if my_time.count(":") == 1:
+    _my_time = my_time.strip().replace("\n", "")
+    if _my_time.count(":") == 1:
         h=0
-        m, s = my_time.split(':')
-    elif my_time.count(":") == 2:
-        h, m, s = my_time.split(':')
+        m, s = _my_time.split(':')
+    elif _my_time.count(":") == 2:
+        h, m, s = _my_time.split(':')
     else:
         return 0  
         
