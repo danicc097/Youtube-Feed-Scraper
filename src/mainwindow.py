@@ -90,6 +90,8 @@ if sys.platform == 'win32':
 print(f"BASEDIR is {BASEDIR}")
 print(f"RUNTIME_DIR is {RUNTIME_DIR}")
 
+os.environ["QT_FONT_DPI"] = "96"
+
 class CustomSignals(QtCore.QObject):
     """
     New signals should only be defined in sub-classes of QObject.

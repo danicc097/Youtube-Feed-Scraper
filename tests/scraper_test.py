@@ -1,10 +1,10 @@
+import time
+from pathlib import Path
 
 import pytest
-import time
-
-from src.youtube_scraper import YoutubeScraper
 from src.resources import get_path
-from pathlib import Path
+from src.youtube_scraper import YoutubeScraper
+
 
 def test_scrape():
     BASEDIR = get_path(Path(__file__).parent)
@@ -22,4 +22,3 @@ def test_scrape():
     assert my_videos["n8o5TYmoAiA"].author == "NewRetroWave"
     assert my_videos["n8o5TYmoAiA"].author_id == "/c/NewRetroWave"
     assert my_videos["n8o5TYmoAiA"].url == "https://www.youtube.com/watch?v=n8o5TYmoAiA"
-    

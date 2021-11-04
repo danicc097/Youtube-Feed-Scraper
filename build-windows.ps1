@@ -5,25 +5,24 @@ $myDir = $PSScriptRoot
 $venvPath = "$myDir\.venv\Scripts\Activate.ps1"
 $specPath = "YouTube-Scraper-windows.spec"
 if (Test-Path $specPath -PathType leaf) { 
-    & $venvPath 
-    pytest tests
-    pipenv run pyinstaller YouTube-Scraper-windows.spec `
-        --noconfirm `
-        --clean
+  & $venvPath 
+  pipenv run pyinstaller YouTube-Scraper-windows.spec `
+    --noconfirm `
+    --clean
 } 
 else {
-    # create spec for first time
-    & $venvPath 
-    pytest tests
-    pipenv run pyi-makespec main.py `
-        --onefile `
-        --name "YouTube-Scraper-windows" `
-        --paths="src\" `
-        --icon='main.ico' `
-        --add-data "src\data\;src\data" `
-        --hidden-import src `
-        --exclude-module cv2 `
-        --exclude-module numpy 
+  # create spec for first time
+  & $venvPath 
+  pytest tests
+  pipenv run pyi-makespec main.py `
+    --onefile `
+    --name "YouTube-Scraper-windows" `
+    --paths="src\" `
+    --icon='main.ico' `
+    --add-data "src\data\;src\data" `
+    --hidden-import src `
+    --exclude-module cv2 `
+    --exclude-module numpy 
 }
 
 #######################################

@@ -51,9 +51,9 @@ def get_timestamp_from_relative_time(rel_time: str):
         elif 'month' in rel_time:
             timestamp = now - relative_time * 60 * 60 * 24 * 7 * 30
         else:
-            timestamp = now
+            timestamp = 0
     else:
-        timestamp = now
+        timestamp = 0
     return int(timestamp)
 
 def get_sec_from_hhmmss(my_time: str):

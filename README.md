@@ -21,6 +21,7 @@
   - [Usage](#usage)
     - [1. Dependencies](#1-dependencies)
       - [Linux](#linux)
+      - [Windows](#windows)
   - [WIPs](#wips)
 
 # Youtube Feed Scraper
@@ -60,6 +61,9 @@ To get started:
 
 ``sudo apt install gstreamer1.0-plugins-good``
 
+#### Windows
+
+Download corresponding release in https://github.com/BtbN/FFmpeg-Builds/releases and add the `bin` folder to your PATH.
 
 ## WIPs
 
